@@ -65,7 +65,18 @@ For direct runtime use, configure `DATABASE_URL` or `DATABASE_URL_FILE`, `APP_UR
 
 ## Repository contents
 
-This public repository contains application source, database migrations, frontend assets, dependency locks and deployment/backup scripts. Tests, internal documentation, plans, generated reports/screenshots and test-only CI remain local and are intentionally excluded by `.gitignore`. Local credentials, backups, dependencies and build output are also excluded.
+This public repository contains application source, database migrations, frontend assets, dependency locks, deployment/backup scripts and GitHub automation. Full test suites, internal documentation, plans and generated reports/screenshots remain local and are intentionally excluded by `.gitignore`. Local credentials, backups, dependencies and build output are also excluded.
+
+## GitHub automation
+
+- **CI** checks formatting, module integrity, Go vet/build, TypeScript, frontend formatting/build, Compose configuration, the non-root image and deployment/workflow lint. It does not claim to run unpublished unit/integration/browser test files.
+- **Security** scans Go/frontend dependencies, Git history for credentials, and the built container. High/critical container findings block publication. **CodeQL** analyzes Go, TypeScript and Actions; **Dependency review** checks pull requests. Dependabot updates Go, npm, Docker and Actions weekly.
+- **Publish container** is available through Actions → Run workflow on `main`. CI, security and CodeQL must succeed before publishing `ghcr.io/arumes31/seliworks` for AMD64/ARM64, with commit tags, an SBOM and provenance attestations.
+- Pushing a version tag such as `v1.0.0` runs the same publication gates and creates a GitHub Release with generated notes and the exact image digest. Stable version tags also update `latest`; prereleases do not. No tag or release is created automatically.
+- **Nightly recovery QA** creates disposable runner-only Compose projects and fresh credentials, verifies repeated migrations, records real server work, restarts app/PostgreSQL, then backs up and restores into fresh database/private-file volumes. It does not replace full application suites or physical-device checks.
+- **GHCR cleanup** is manual and defaults to dry-run. It considers only unreferenced, untagged manifests older than 30 days, protects retained multi-architecture/attestation children and preserves tagged versions for rollback.
+
+Actions use verified full commit pins and limited job permissions. No production host or external SMTP credentials are required. The small workflow-lint adapter preserves GitHub's current `$/` self-repository syntax while the pinned Actionlint release lacks support (upstream issue #711); it normalizes only equivalent local-workflow references for linting and does not disable rules.
 
 Set organization identity, billing rates, special-day policies and tax treatment before invoicing. Percentage and extra-currency-per-hour vacation/public-holiday policies are configured separately. German is the default interface language; English is selectable.
 

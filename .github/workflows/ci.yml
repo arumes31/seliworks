@@ -1,0 +1,88 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  source:
+    name: Source build and static checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.22.0'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Verify formatting and modules
+        run: |
+          test -z "$(gofmt -l cmd internal)"
+          go mod verify
+          go vet ./...
+      - name: Build published frontend
+        working-directory: web
+        run: |
+          npm ci
+          npm run typecheck
+          npx --no-install prettier --check src index.html vite.config.ts tsconfig.json
+          npm run build
+      - name: Build Go application
+        run: go build -trimpath -o /tmp/seliworks ./cmd/seliworks
+      - name: Validate production and development Compose
+        env:
+          APP_URL: https://work.example.com
+        run: |
+          docker compose config --quiet
+          docker compose -f compose.yaml -f compose.dev.yaml config --quiet
+      - name: Build production image
+        run: docker build --tag seliworks:ci .
+      - name: Enforce non-root image
+        run: test "$(docker image inspect seliworks:ci --format '{{.Config.User}}')" = '10001:10001'
+      - name: Record verification scope
+        run: |
+          echo '### Published-source checks' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Build, types, formatting, modules, Compose and image checks passed. Unit/integration/browser test sources are maintained locally and excluded from this repository; this job does not claim to run them.' >> "$GITHUB_STEP_SUMMARY"
+  workflow-policy:
+    name: Workflow and deployment lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Validate workflow syntax
+        run: |
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+          python3 .github/scripts/lint-workflows.py
+      - name: Audit workflow security
+        uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
+        with:
+          version: v1.31.1
+          advanced-security: false
+      - name: Lint Dockerfile
+        uses: hadolint/hadolint-action@2a66e89f53d0771bb131a7fa31f3136336094aa6 # v3.4.0
+        with:
+          dockerfile: Dockerfile
+      - name: Lint deployment scripts
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install --yes shellcheck
+          shellcheck scripts/*.sh

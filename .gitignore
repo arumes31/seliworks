@@ -19,7 +19,6 @@ web/test/
 web/e2e/
 web/playwright*.config.*
 scripts/check.sh
-.github/
 
 # Internal documentation, plans and generated verification material.
 docs/

@@ -1,0 +1,116 @@
+name: Nightly recovery QA
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: nightly-recovery
+  cancel-in-progress: false
+jobs:
+  recovery:
+    name: Migrations, timer persistence and clean restore
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      APP_URL: http://localhost:8080
+      APP_ENV: development
+      BOOTSTRAP_EMAIL: recovery@example.invalid
+      BOOTSTRAP_NAME: Recovery fixture
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Prepare isolated runtime and fresh secrets
+        run: |
+          cp .env.example .env
+          sh scripts/init-secrets.sh
+          sudo chown 10001:10001 backups
+          sudo chmod 700 backups
+          docker compose -p seliworks-nightly-source -f compose.yaml -f compose.dev.yaml build app
+      - name: Start and bootstrap disposable database
+        run: |
+          compose() { docker compose -p seliworks-nightly-source -f compose.yaml -f compose.dev.yaml "$@"; }
+          compose up -d --wait postgres
+          compose --profile tools run --rm migrate
+          compose --profile tools run --rm migrate
+          compose --profile tools run --rm bootstrap
+          compose up -d --wait app
+      - name: Prepare API persistence probe
+        run: |
+          cat > "$RUNNER_TEMP/timer-probe.py" <<'PY'
+          import http.cookiejar, json, os, pathlib, urllib.request, uuid
+          origin = 'http://localhost:8080'
+          client = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+          csrf = ''
+          def api(path, data=None, method=None):
+              headers = {'Origin': origin, 'Content-Type': 'application/json'}
+              if data is not None:
+                  headers.update({'X-CSRF-Token': csrf, 'Idempotency-Key': str(uuid.uuid4())})
+              req = urllib.request.Request(origin + '/api/v1' + path, data=None if data is None else json.dumps(data).encode(), headers=headers, method=method)
+              with client.open(req, timeout=15) as response:
+                  return json.load(response)
+          password = pathlib.Path('.secrets/bootstrap_password').read_text().strip()
+          api('/auth/login', {'email': os.environ['BOOTSTRAP_EMAIL'], 'password': password})
+          me = api('/me')
+          csrf = me['csrf_token']
+          state = pathlib.Path(os.environ['RUNNER_TEMP']) / 'timer-checkpoint.json'
+          if os.environ['PROBE_MODE'] == 'seed':
+              farm = api('/admin/farms', {'name': 'Recovery farm'})
+              api('/admin/workers/' + me['user']['id'] + '/farms', {'farm_ids': [farm['id']]}, 'PUT')
+              session = api('/work-sessions/start', {'farm_id': farm['id']})
+              state.write_text(json.dumps({'id': session['id'], 'started_at': session['started_at']}))
+          else:
+              expected = json.loads(state.read_text())
+              session = api('/me/active-work-session')
+              assert session['id'] == expected['id']
+              assert session['started_at'] == expected['started_at']
+              assert session['stopped_at'] is None
+          print('Confirmed persisted server timer:', session['id'])
+          PY
+      - name: Record running work and private-volume fixture
+        env:
+          PROBE_MODE: seed
+        run: |
+          python3 "$RUNNER_TEMP/timer-probe.py"
+          docker compose -p seliworks-nightly-source -f compose.yaml -f compose.dev.yaml exec -T app sh -c 'printf "recovery fixture\n" > /var/lib/seliworks/recovery-proof.txt'
+      - name: Recover the same timer after app and PostgreSQL restart
+        env:
+          PROBE_MODE: check
+        run: |
+          compose() { docker compose -p seliworks-nightly-source -f compose.yaml -f compose.dev.yaml "$@"; }
+          compose restart postgres app
+          compose up -d --wait app
+          python3 "$RUNNER_TEMP/timer-probe.py"
+      - name: Take matched backup and stop source deployment
+        run: |
+          compose() { docker compose -p seliworks-nightly-source -f compose.yaml -f compose.dev.yaml "$@"; }
+          compose stop app
+          compose --profile backup run --rm backup
+          compose down
+          backup="$(sudo find backups -mindepth 1 -maxdepth 1 -type d | sort | tail -n 1)"
+          test -n "$backup"
+          sudo test -f "$backup/COMPLETE"
+          echo "RESTORE_DIR=$PWD/$backup" >> "$GITHUB_ENV"
+      - name: Restore to fresh database and private-file volumes
+        run: |
+          compose() { docker compose -p seliworks-nightly-restore -f compose.yaml -f compose.dev.yaml "$@"; }
+          compose up -d --wait postgres
+          compose run --rm --no-deps --entrypoint /bin/true app
+          compose --profile backup run --rm restore
+          compose --profile tools run --rm migrate
+          compose up -d --wait app
+      - name: Verify restored credentials, original timer and private file
+        env:
+          PROBE_MODE: check
+        run: |
+          python3 "$RUNNER_TEMP/timer-probe.py"
+          actual="$(docker compose -p seliworks-nightly-restore -f compose.yaml -f compose.dev.yaml exec -T app cat /var/lib/seliworks/recovery-proof.txt)"
+          test "$actual" = 'recovery fixture'
+          echo 'Fresh migrations, repeat migration, app/PostgreSQL restart, matched backup and fresh-volume restore passed. This operational probe does not replace the locally maintained full test suites or physical-device checks.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove only disposable runner projects
+        if: always()
+        run: |
+          docker compose -p seliworks-nightly-source -f compose.yaml -f compose.dev.yaml down --volumes --remove-orphans
+          docker compose -p seliworks-nightly-restore -f compose.yaml -f compose.dev.yaml down --volumes --remove-orphans
