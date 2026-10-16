@@ -1377,13 +1377,13 @@ dialog[open] {
 .login-message p {
   max-width: 25ch;
   font-size: 18px;
-  color: #674821;
+  color: #1c140c;
   line-height: 1.65;
 }
 .login-foot {
   font-size: 10px;
   letter-spacing: 0.05em;
-  opacity: 0.75;
+  color: #1c140c;
 }
 .login-form {
   position: relative;

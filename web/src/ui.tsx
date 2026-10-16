@@ -103,8 +103,16 @@ export function Modal({
   const titleId = useId();
   useEffect(() => {
     const element = ref.current;
+    const previousFocus =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
     element?.showModal();
-    return () => element?.close();
+    return () => {
+      element?.close();
+      if (previousFocus?.isConnected)
+        previousFocus.focus({ preventScroll: true });
+    };
   }, []);
   return (
     <dialog
