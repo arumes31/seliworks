@@ -1,0 +1,41 @@
+node_modules/
+web/dist/
+data/
+.env
+*.exe
+coverage*
+test-results/
+playwright-report/
+.tools/
+*.log
+.secrets/
+backups/
+
+# Local tests and test tooling (intentionally excluded from publication).
+*_test.go
+*.test.*
+*.spec.*
+web/test/
+web/e2e/
+web/playwright*.config.*
+scripts/check.sh
+.github/
+
+# Internal documentation, plans and generated verification material.
+docs/
+tasks/
+artifacts/
+output/
+DESIGN.md
+PRODUCT.md
+
+# Local configuration, editor files and temporary output.
+.env.*
+!.env.example
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+*.bak

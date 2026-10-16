@@ -1,0 +1,22 @@
+# Local access only. Never use this override on a public server.
+services:
+  app:
+    environment:
+      APP_ENV: development
+      APP_URL: http://localhost:8080
+      TRUSTED_PROXY_CIDRS: ""
+    ports: ["127.0.0.1:8080:8080"]
+  migrate:
+    environment:
+      APP_ENV: development
+      APP_URL: http://localhost:8080
+  bootstrap:
+    environment:
+      APP_ENV: development
+      APP_URL: http://localhost:8080
+  postgres:
+    ports: ["127.0.0.1:5432:5432"]
+networks:
+  proxy:
+    external: false
+    name: seliworks-development

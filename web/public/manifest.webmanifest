@@ -1,0 +1,33 @@
+{
+  "id": "/",
+  "name": "SeliWorks",
+  "short_name": "SeliWorks",
+  "description": "Verlässliche Arbeitszeiterfassung für landwirtschaftliche Betriebe",
+  "lang": "de",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#fff8ee",
+  "theme_color": "#fff8ee",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
