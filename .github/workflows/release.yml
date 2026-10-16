@@ -38,7 +38,7 @@ jobs:
             echo 'Release already exists; preserving published notes.'
             exit 0
           fi
-          printf 'Container: `%s@%s`\n\nBuilt from this tag after CI, security and CodeQL checks.\n' "$IMAGE" "$DIGEST" > "$RUNNER_TEMP/release-notes.md"
+          printf 'Container: %s@%s\n\nBuilt from this tag after CI, security and CodeQL checks.\n' "$IMAGE" "$DIGEST" > "$RUNNER_TEMP/release-notes.md"
           args=(--verify-tag --generate-notes --notes-file "$RUNNER_TEMP/release-notes.md" --title "$TAG")
           if [[ "$TAG" == *-* ]]; then args+=(--prerelease); fi
           gh release create "$TAG" "${args[@]}"
