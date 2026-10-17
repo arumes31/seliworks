@@ -20,7 +20,12 @@ export function InvoiceSummary({
   const money = (value: string) =>
     decimalMoney(value, currency, lang === "de" ? "de-AT" : "en-GB");
   return (
-    <div className="table-wrap">
+    <div
+      className="table-wrap"
+      role="region"
+      aria-label={t("invoiceSummary")}
+      tabIndex={0}
+    >
       <table>
         <caption>{t("invoiceSummary")}</caption>
         <thead>

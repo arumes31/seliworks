@@ -325,7 +325,11 @@ export function Reports() {
         <Loading />
       ) : result.data?.rows.length ? (
         <>
-          <section className="report-chart panel" aria-label={t("reports")}>
+          <section
+            className="report-chart panel"
+            aria-label={t("reports")}
+            tabIndex={0}
+          >
             {result.data.rows.map((row, i) => (
               <div className="chart-row" key={i}>
                 <span>{row.label}</span>
@@ -341,7 +345,12 @@ export function Reports() {
             ))}
           </section>
           <div className="panel table-panel section-block">
-            <div className="table-wrap">
+            <div
+              className="table-wrap"
+              role="region"
+              aria-label={`${t("reports")} – ${t("total")}`}
+              tabIndex={0}
+            >
               <table>
                 <thead>
                   <tr>
@@ -717,7 +726,12 @@ function InvoiceDetails({
                 )}
               </>
             ) : (
-              <div className="table-wrap">
+              <div
+                className="table-wrap"
+                role="region"
+                aria-label={t("invoiceDetails")}
+                tabIndex={0}
+              >
                 <table>
                   <thead>
                     <tr>
