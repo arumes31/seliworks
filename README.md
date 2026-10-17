@@ -81,3 +81,9 @@ Actions use verified full commit pins and limited job permissions. No production
 Set organization identity, billing rates, special-day policies and tax treatment before invoicing. Percentage and extra-currency-per-hour vacation/public-holiday policies are configured separately. German is the default interface language; English is selectable.
 
 Production rollout and physical Android/iPhone installation checks still require verification. Keep database/private-document backups and required encryption keys protected outside the deployment host and verify recovery before using real business data.
+
+## Request diagnostics
+
+Unexpected request failures are JSON logs with the server-generated `request_id`, HTTP `method`, registered `route` pattern, error class (`type`) and Go `error_type`. Route parameters, query strings, request bodies, credentials and raw database error messages are excluded. Use the request ID returned by the API to correlate a report with its server event.
+
+`context_canceled` is logged at debug level only when the request context was also canceled by the caller. Internal cancellations and other failures remain errors, even after the caller disconnects. `deadline_exceeded` is a warning; the API still returns the same `503 UNAVAILABLE` response and requires reconciliation before retrying a mutation. Set `LOG_LEVEL=debug` temporarily when investigating canceled requests, then return to the normal `info` level.
