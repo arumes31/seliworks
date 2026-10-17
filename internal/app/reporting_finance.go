@@ -9,22 +9,6 @@ import (
 	"time"
 )
 
-func loadReportClaims(ctx context.Context, q querier, id string, from, to time.Time) ([]priceInterval, error) {
-	rows, err := q.Query(ctx, `SELECT started_at,stopped_at FROM invoice_allocations WHERE session_id=$1 AND active AND started_at<$3 AND stopped_at>$2`, id, from, to)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := []priceInterval{}
-	for rows.Next() {
-		var p priceInterval
-		if err = rows.Scan(&p.Start, &p.Stop); err != nil {
-			return nil, err
-		}
-		out = append(out, p)
-	}
-	return out, rows.Err()
-}
 func formatBigCents(value *big.Int) string {
 	q, r := new(big.Int), new(big.Int)
 	q.QuoRem(value, big.NewInt(100), r)
@@ -33,7 +17,7 @@ func formatBigCents(value *big.Int) string {
 func reportFinance(ctx context.Context, q querier, from, to time.Time, farmID, workerID, defaultCurrency string, unbilled int64) (map[string]any, error) {
 	type amounts struct{ net, paid, balance big.Int }
 	currencies := map[string]*amounts{}
-	invoices := map[string]string{}
+	invoices := map[string]struct{}{}
 	rows, err := q.Query(ctx, `SELECT al.invoice_id::text,al.started_at,al.stopped_at,al.snapshot,i.currency FROM invoice_allocations al JOIN invoices i ON i.id=al.invoice_id JOIN work_sessions w ON w.id=al.session_id WHERE al.active AND i.state='issued' AND al.started_at<$2 AND al.stopped_at>$1 AND ($3='' OR w.farm_id::text=$3) AND ($4='' OR w.worker_id::text=$4)`, from, to, farmID, workerID)
 	if err != nil {
 		return nil, err
@@ -61,7 +45,7 @@ func reportFinance(ctx context.Context, q querier, from, to time.Time, farmID, w
 			currencies[currency] = v
 		}
 		v.net.Add(&v.net, big.NewInt(cents))
-		invoices[id] = currency
+		invoices[id] = struct{}{}
 	}
 	if err == nil {
 		err = rows.Err()
@@ -70,15 +54,29 @@ func reportFinance(ctx context.Context, q querier, from, to time.Time, farmID, w
 	if err != nil {
 		return nil, err
 	}
-	for id, currency := range invoices {
-		var total, paid int64
-		err = q.QueryRow(ctx, `SELECT total_cents,coalesce((SELECT sum(amount_cents) FROM payments WHERE invoice_id=i.id),0)::bigint FROM invoices i WHERE id=$1`, id).Scan(&total, &paid)
+	if len(invoices) > 0 {
+		ids := make([]string, 0, len(invoices))
+		for id := range invoices {
+			ids = append(ids, id)
+		}
+		rows, err = q.Query(ctx, `SELECT currency,total_cents,coalesce((SELECT sum(amount_cents) FROM payments WHERE invoice_id=i.id),0)::bigint FROM invoices i WHERE id=ANY($1::uuid[])`, ids)
 		if err != nil {
 			return nil, err
 		}
-		v := currencies[currency]
-		v.paid.Add(&v.paid, big.NewInt(paid))
-		v.balance.Add(&v.balance, big.NewInt(total-paid))
+		defer rows.Close()
+		for rows.Next() {
+			var currency string
+			var total, paid int64
+			if err = rows.Scan(&currency, &total, &paid); err != nil {
+				return nil, err
+			}
+			v := currencies[currency]
+			v.paid.Add(&v.paid, big.NewInt(paid))
+			v.balance.Add(&v.balance, big.NewInt(total-paid))
+		}
+		if err = rows.Err(); err != nil {
+			return nil, err
+		}
 	}
 	if len(currencies) == 0 {
 		currencies[defaultCurrency] = &amounts{}
