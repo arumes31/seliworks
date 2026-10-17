@@ -30,7 +30,12 @@ export function InvoiceHistory({
       {!!payments.length && (
         <section className="section-block">
           <h3>{t("paymentHistory")}</h3>
-          <div className="table-wrap">
+          <div
+            className="table-wrap"
+            role="region"
+            aria-label={t("paymentHistory")}
+            tabIndex={0}
+          >
             <table>
               <thead>
                 <tr>
