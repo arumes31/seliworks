@@ -1,7 +1,8 @@
 #!/bin/sh
 set -eu
 umask 077
-export PGPASSWORD="$(tr -d '\r\n' < /run/secrets/app_database_password)"
+PGPASSWORD="$(tr -d '\r\n' < /run/secrets/app_database_password)"
+export PGPASSWORD
 stamp="$(date -u +%Y%m%dT%H%M%SZ)"
 target="/backups/$stamp"
 mkdir "$target"
