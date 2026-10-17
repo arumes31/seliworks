@@ -45,6 +45,9 @@ func safeCSV(value string) string {
 	}
 	return value
 }
+
+// report uses one repeatable-read snapshot so time totals and financial balances
+// remain consistent while other requests edit work or record payments.
 func (a *App) report(w http.ResponseWriter, r *http.Request) {
 	tx, err := a.DB.BeginTx(r.Context(), pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if err != nil {

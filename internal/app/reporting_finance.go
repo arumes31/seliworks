@@ -14,6 +14,9 @@ func formatBigCents(value *big.Int) string {
 	q.QuoRem(value, big.NewInt(100), r)
 	return fmt.Sprintf("%s.%02d", q.String(), r.Int64())
 }
+
+// reportFinance calculates revenue for the selected period but counts payments
+// and outstanding balances once per whole invoice.
 func reportFinance(ctx context.Context, q querier, from, to time.Time, farmID, workerID, defaultCurrency string, unbilled int64) (map[string]any, error) {
 	type amounts struct{ net, paid, balance big.Int }
 	currencies := map[string]*amounts{}

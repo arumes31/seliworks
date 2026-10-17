@@ -48,7 +48,9 @@ func handleError(w http.ResponseWriter, r *http.Request, err error) {
 		fail(w, r, p.Status, p.Code, p.Message)
 	case errors.Is(err, pgx.ErrNoRows):
 		fail(w, r, 404, "NOT_FOUND", "Record not found")
-	case errors.As(err, &pe) && (pe.Code == "23505" || pe.Code == "23P01" || pe.Code == "40001" || pe.Code == "40P01"):
+	case errors.As(err, &pe) && pe.Code == "23P01":
+		fail(w, r, 409, "INTERVAL_CONFLICT", "A time interval overlaps an existing record. Review the interval before saving.")
+	case errors.As(err, &pe) && (pe.Code == "23505" || pe.Code == "40001" || pe.Code == "40P01"):
 		fail(w, r, 409, "CONFLICT", "Another operation conflicts with this change. Refresh and review the record.")
 	case errors.As(err, &pe) && (pe.Code == "23514" || pe.Code == "23503" || pe.Code == "22P02" || pe.Code == "22007"):
 		fail(w, r, 422, "VALIDATION", "Invalid record, interval or referenced value")
