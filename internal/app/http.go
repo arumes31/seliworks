@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -52,11 +53,28 @@ func handleError(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.As(err, &pe) && (pe.Code == "23514" || pe.Code == "23503" || pe.Code == "22P02" || pe.Code == "22007"):
 		fail(w, r, 422, "VALIDATION", "Invalid record, interval or referenced value")
 	default:
-		slog.Error("request failed", "request_id", w.Header().Get("X-Request-ID"), "type", errorClass(err))
+		level := slog.LevelError
+		if errors.Is(err, context.Canceled) && errors.Is(r.Context().Err(), context.Canceled) {
+			level = slog.LevelDebug
+		} else if errors.Is(err, context.DeadlineExceeded) {
+			level = slog.LevelWarn
+		}
+		// Route patterns and error types identify the failing operation without
+		// exposing record IDs, query parameters or error text containing secrets.
+		slog.Log(r.Context(), level, "request failed",
+			"request_id", w.Header().Get("X-Request-ID"),
+			"method", r.Method, "route", r.Pattern,
+			"type", errorClass(err), "error_type", fmt.Sprintf("%T", err))
 		fail(w, r, 503, "UNAVAILABLE", "The operation could not be confirmed. Reconnect and reconcile before retrying.")
 	}
 }
 func errorClass(err error) string {
+	if errors.Is(err, context.Canceled) {
+		return "context_canceled"
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return "deadline_exceeded"
+	}
 	var p *pgconn.PgError
 	if errors.As(err, &p) {
 		return p.Code
