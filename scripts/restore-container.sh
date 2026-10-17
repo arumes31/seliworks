@@ -3,7 +3,8 @@ set -eu
 test -f /restore/COMPLETE || { echo 'Incomplete backup; refusing restore.' >&2; exit 1; }
 (cd /restore && sha256sum -c SHA256SUMS)
 test -z "$(find /data -mindepth 1 -maxdepth 1 -print -quit)" || { echo 'Application data directory is not empty; use a fresh restore project.' >&2; exit 1; }
-export PGPASSWORD="$(tr -d '\r\n' < /run/secrets/app_database_password)"
+PGPASSWORD="$(tr -d '\r\n' < /run/secrets/app_database_password)"
+export PGPASSWORD
 tables="$(psql -X -A -t -c "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'")"
 test "$tables" = 0 || { echo 'Database contains tables; use a fresh restore project.' >&2; exit 1; }
 # Only accept our regular-file/directory archive format, never links or traversal.
