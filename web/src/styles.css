@@ -58,6 +58,10 @@
 * {
   box-sizing: border-box;
 }
+#root {
+  display: flow-root;
+  min-height: 100dvh;
+}
 body {
   margin: 0;
   background: var(--bg);
