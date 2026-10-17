@@ -13,8 +13,8 @@ COPY cmd/ ./cmd/
 COPY internal/ ./internal/
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/seliworks ./cmd/seliworks
 
-FROM alpine:3.23.6 AS runtime
-RUN apk add --no-cache ca-certificates=20260909-r0 tzdata=2026e-r0 wget=1.25.0-r2 && \
+FROM alpine:3.24.2 AS runtime
+RUN apk add --no-cache ca-certificates=20260909-r0 tzdata=2026e-r0 wget=1.25.0-r3 && \
     addgroup -g 10001 seliworks && adduser -D -H -u 10001 -G seliworks seliworks && \
     mkdir -p /app/web/dist /var/lib/seliworks && chown 10001:10001 /var/lib/seliworks
 WORKDIR /app
