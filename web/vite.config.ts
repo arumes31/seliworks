@@ -28,6 +28,6 @@ const publicServiceWorker = () => ({
 });
 export default defineConfig({
   plugins: [react(), publicServiceWorker()],
-  server: { host: "127.0.0.1", proxy: { "/api": "http://127.0.0.1:8080" } },
+  server: { host: "127.0.0.1", proxy: { "/api": "http://127.0.0.1:16540" } },
   build: { outDir: "dist", sourcemap: false, assetsInlineLimit: 0 },
 });

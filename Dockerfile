@@ -20,8 +20,8 @@ RUN apk add --no-cache ca-certificates=20260909-r0 tzdata=2026e-r0 wget=1.25.0-r
 WORKDIR /app
 COPY --from=backend /out/seliworks /usr/local/bin/seliworks
 COPY --from=frontend /src/web/dist/ /app/web/dist/
-ENV LISTEN_ADDR=:8080 STATIC_DIR=/app/web/dist DATA_DIR=/var/lib/seliworks
+ENV LISTEN_ADDR=:16540 STATIC_DIR=/app/web/dist DATA_DIR=/var/lib/seliworks
 USER 10001:10001
-EXPOSE 8080
+EXPOSE 16540
 ENTRYPOINT ["/usr/local/bin/seliworks"]
 CMD ["serve"]

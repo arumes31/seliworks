@@ -22,7 +22,7 @@ type Config struct {
 }
 
 func LoadConfig() (Config, error) {
-	c := Config{AppURL: os.Getenv("APP_URL"), DatabaseURL: os.Getenv("DATABASE_URL"), DataDir: envDefault("DATA_DIR", "data"), StaticDir: envDefault("STATIC_DIR", "web/dist"), ListenAddr: envDefault("LISTEN_ADDR", ":8080"), Environment: envDefault("APP_ENV", "production")}
+	c := Config{AppURL: os.Getenv("APP_URL"), DatabaseURL: os.Getenv("DATABASE_URL"), DataDir: envDefault("DATA_DIR", "data"), StaticDir: envDefault("STATIC_DIR", "web/dist"), ListenAddr: envDefault("LISTEN_ADDR", ":16540"), Environment: envDefault("APP_ENV", "production")}
 	if p := os.Getenv("DATABASE_URL_FILE"); p != "" {
 		b, e := os.ReadFile(p)
 		if e != nil {

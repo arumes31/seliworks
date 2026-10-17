@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
-      APP_URL: http://localhost:8080
+      APP_URL: http://localhost:16540
       APP_ENV: development
       BOOTSTRAP_EMAIL: recovery@example.invalid
       BOOTSTRAP_NAME: Recovery fixture
@@ -41,7 +41,7 @@ jobs:
         run: |
           cat > "$RUNNER_TEMP/timer-probe.py" <<'PY'
           import http.cookiejar, json, os, pathlib, urllib.request, uuid
-          origin = 'http://localhost:8080'
+          origin = 'http://localhost:16540'
           client = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
           csrf = ''
           def api(path, data=None, method=None):

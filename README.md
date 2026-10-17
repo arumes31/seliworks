@@ -22,7 +22,7 @@ docker compose up -d app
 docker compose ps
 ```
 
-Configure the existing HTTPS proxy to forward your hostname to `seliworks:8080` on the selected external network (or your configured `PROXY_ALIAS`). Forward the original Host and X-Forwarded-Proto headers. Set TRUSTED_PROXY_CIDRS to the exact proxy addresses; keep PostgreSQL private and do not publish its port in production. Log in with `BOOTSTRAP_EMAIL` and the generated password read privately from `.secrets/bootstrap_password`, then change the password in Profile. Bootstrap refuses to create a second initial administrator.
+Configure the existing HTTPS proxy to forward your hostname to `seliworks:16540` on the selected external network (or your configured `PROXY_ALIAS`). Forward the original Host and X-Forwarded-Proto headers. Set TRUSTED_PROXY_CIDRS to the exact proxy addresses; keep PostgreSQL private and do not publish its port in production. Log in with `BOOTSTRAP_EMAIL` and the generated password read privately from `.secrets/bootstrap_password`, then change the password in Profile. Bootstrap refuses to create a second initial administrator.
 
 For local development, use the override on **every** Compose invocation:
 
@@ -36,7 +36,7 @@ docker compose -f compose.yaml -f compose.dev.yaml --profile tools run --rm boot
 docker compose -f compose.yaml -f compose.dev.yaml up -d app
 ```
 
-Open [localhost:8080](http://localhost:8080). The override deliberately permits insecure cookies only for local development and binds HTTP/database ports to loopback. No external proxy network is needed. For optional disposable demo records, **skip bootstrap** on a fresh development database and run the following before starting the app. Demo requires no existing users; use a separate project with fresh volumes if you already bootstrapped:
+Open [localhost:16540](http://localhost:16540). The override deliberately permits insecure cookies only for local development and binds HTTP/database ports to loopback. No external proxy network is needed. For optional disposable demo records, **skip bootstrap** on a fresh development database and run the following before starting the app. Demo requires no existing users; use a separate project with fresh volumes if you already bootstrapped:
 
 ```sh
 # Generate the development password locally; do not reuse any production password.
