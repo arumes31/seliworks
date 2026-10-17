@@ -40,6 +40,8 @@ const de: Record<string, string> = {
   IDEMPOTENCY_REQUIRED:
     "Für diesen Vorgang ist ein gültiger Befehlsschlüssel erforderlich.",
   INTERNAL: "Ein unerwarteter Serverfehler ist aufgetreten.",
+  INTERVAL_CONFLICT:
+    "Dieser Zeitraum überschneidet sich mit einem vorhandenen Eintrag. Prüfe den Zeitraum vor dem Speichern.",
   INVALID_CODE: "Der Authentifizierungscode ist falsch.",
   INVALID_CREDENTIALS: "E-Mail-Adresse oder Passwort ist falsch.",
   INVALID_DAY_TYPE:

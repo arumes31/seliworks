@@ -54,7 +54,7 @@ export function ErrorNotice({
   return (
     <div role="alert" className="notice error">
       <div>
-        {error instanceof APIError && error.status === 409
+        {error instanceof APIError && error.code === "VERSION_CONFLICT"
           ? t("conflict")
           : errorText(error, lang)}
       </div>
