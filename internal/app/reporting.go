@@ -2,6 +2,7 @@ package app
 
 import (
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"sort"
@@ -89,7 +90,10 @@ func (a *App) report(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, 422, "VALIDATION", "Group must be worker, farm, activity or day")
 		return
 	}
-	rows, err := tx.Query(r.Context(), `SELECT w.id::text,w.effective_start,coalesce(w.effective_stop,$3),w.state,u.name,f.name,coalesce(a.name,'—'),w.worker_id::text,w.farm_id::text,coalesce(w.activity_id::text,''),w.additional_deduction_us,w.non_billable FROM work_sessions w JOIN users u ON u.id=w.worker_id JOIN farms f ON f.id=w.farm_id LEFT JOIN activities a ON a.id=w.activity_id WHERE w.effective_start<$2 AND coalesce(w.effective_stop,$3)>$1 AND ($4='' OR w.farm_id::text=$4) AND ($5='' OR w.worker_id::text=$5) ORDER BY w.effective_start`, start, stop, now, r.URL.Query().Get("farm_id"), r.URL.Query().Get("worker_id"))
+	rows, err := tx.Query(r.Context(), `SELECT w.id::text,w.effective_start,coalesce(w.effective_stop,$3),w.state,u.name,f.name,coalesce(a.name,'—'),w.worker_id::text,w.farm_id::text,coalesce(w.activity_id::text,''),w.additional_deduction_us,w.non_billable,
+coalesce((SELECT jsonb_agg(jsonb_build_object('started_at',b.started_at,'stopped_at',b.stopped_at) ORDER BY b.started_at) FROM work_break_intervals b WHERE b.session_id=w.id),'[]'::jsonb),
+coalesce((SELECT jsonb_agg(jsonb_build_object('started_at',al.started_at,'stopped_at',al.stopped_at)) FROM invoice_allocations al WHERE al.session_id=w.id AND al.active AND al.started_at<least(coalesce(w.effective_stop,$3),$2) AND al.stopped_at>greatest(w.effective_start,$1)),'[]'::jsonb)
+FROM work_sessions w JOIN users u ON u.id=w.worker_id JOIN farms f ON f.id=w.farm_id LEFT JOIN activities a ON a.id=w.activity_id WHERE w.effective_start<$2 AND coalesce(w.effective_stop,$3)>$1 AND ($4='' OR w.farm_id::text=$4) AND ($5='' OR w.worker_id::text=$5) ORDER BY w.effective_start`, start, stop, now, r.URL.Query().Get("farm_id"), r.URL.Query().Get("worker_id"))
 	if err != nil {
 		handleError(w, r, err)
 		return
@@ -101,11 +105,19 @@ func (a *App) report(w http.ResponseWriter, r *http.Request) {
 		workerID, farmID, activityID  string
 		deduction                     int64
 		nonBillable                   bool
+		breaks, claims                []priceInterval
 	}
 	entries := []entry{}
 	for rows.Next() {
 		var e entry
-		if err = rows.Scan(&e.id, &e.start, &e.stop, &e.state, &e.worker, &e.farm, &e.activity, &e.workerID, &e.farmID, &e.activityID, &e.deduction, &e.nonBillable); err != nil {
+		var breaks, claims []byte
+		if err = rows.Scan(&e.id, &e.start, &e.stop, &e.state, &e.worker, &e.farm, &e.activity, &e.workerID, &e.farmID, &e.activityID, &e.deduction, &e.nonBillable, &breaks, &claims); err != nil {
+			break
+		}
+		if err = json.Unmarshal(breaks, &e.breaks); err != nil {
+			break
+		}
+		if err = json.Unmarshal(claims, &e.claims); err != nil {
 			break
 		}
 		entries = append(entries, e)
@@ -122,17 +134,9 @@ func (a *App) report(w http.ResponseWriter, r *http.Request) {
 	totals := reportRow{Label: "Total"}
 	var provisional int64
 	for _, e := range entries {
-		breaks, e2 := loadPriceBreaks(r.Context(), tx, e.id)
-		if e2 != nil {
-			handleError(w, r, e2)
-			return
-		}
+		breaks := e.breaks
 		x, y := clippedInterval(e.start, e.stop, start, stop)
-		claims, claimErr := loadReportClaims(r.Context(), tx, e.id, x, y)
-		if claimErr != nil {
-			handleError(w, r, claimErr)
-			return
-		}
+		claims := e.claims
 		billable := !e.nonBillable
 		for x.Before(y) {
 			end := y
