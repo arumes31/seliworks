@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
 
 import { ArrowRight, Eye, EyeOff, Leaf, ShieldCheck } from "lucide-react";
 
@@ -23,7 +23,7 @@ export function Login({
   const codeInput = useRef<HTMLInputElement>(null);
   const credentialsVersion = useRef(0);
   const passwordId = useId();
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (mfaRequired) codeInput.current?.focus();
   }, [mfaRequired]);
   function credentialsChanged() {
