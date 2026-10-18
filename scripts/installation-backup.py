@@ -124,8 +124,11 @@ def capture(source, backup):
     private = backup / "installation"
     private.mkdir(mode=0o700)
     temporary = private / ".configuration.tmp"
+    checksum = private / "configuration.sha256"
     try:
-        write_new(temporary, json.dumps(bundle, sort_keys=True).encode("ascii"), 0o600)
+        raw = json.dumps(bundle, sort_keys=True).encode("ascii")
+        write_new(temporary, raw, 0o600)
+        write_new(checksum, (hashlib.sha256(raw).hexdigest() + "\n").encode("ascii"), 0o600)
         os.replace(temporary, private / "configuration.json")
         descriptor = os.open(private, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
         try:
@@ -134,6 +137,7 @@ def capture(source, backup):
             os.close(descriptor)
     except BaseException:
         temporary.unlink(missing_ok=True)
+        checksum.unlink(missing_ok=True)
         (private / "configuration.json").unlink(missing_ok=True)
         private.rmdir()
         raise
@@ -153,6 +157,9 @@ def verify(backup):
     hashes = data_hashes(backup)
     directory(backup / "installation", private=True)
     raw = read_private(backup / "installation/configuration.json", MAX_BUNDLE_BYTES, env=True)
+    checksum = read_private(backup / "installation/configuration.sha256", 65, env=True)
+    if checksum != (hashlib.sha256(raw).hexdigest() + "\n").encode("ascii"):
+        raise ValueError("Configuration checksum does not match")
     try:
         bundle = json.loads(raw, object_pairs_hook=unique_object)
     except (UnicodeError, RecursionError) as error:

@@ -24,7 +24,7 @@ running="$(docker compose ps --status running --services app)"
 restart_app() {
   if [ "$running" = app ]; then
     running=''
-    docker compose start --wait --wait-timeout 120 app
+    docker compose up -d --no-deps --no-recreate --wait --wait-timeout 120 app
   fi
 }
 resume() {

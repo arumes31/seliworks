@@ -155,5 +155,5 @@ jobs:
       - name: Remove only disposable runner projects
         if: always()
         run: |
-          docker compose -p seliworks-nightly-source -f compose.yaml -f compose.dev.yaml down --volumes --remove-orphans
-          docker compose -p seliworks-nightly-restore -f compose.yaml -f compose.dev.yaml down --volumes --remove-orphans
+          sudo --preserve-env=APP_URL,APP_ENV,BOOTSTRAP_EMAIL,BOOTSTRAP_NAME docker compose -p seliworks-nightly-source -f compose.yaml -f compose.dev.yaml down --volumes --remove-orphans
+          sudo --preserve-env=APP_URL,APP_ENV,BOOTSTRAP_EMAIL,BOOTSTRAP_NAME docker compose -p seliworks-nightly-restore -f compose.yaml -f compose.dev.yaml down --volumes --remove-orphans
