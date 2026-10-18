@@ -111,7 +111,9 @@ jobs:
           sudo chown root:root .env .secrets .secrets/*
           sudo chmod 640 .env
           sudo --preserve-env=APP_URL,APP_ENV,BOOTSTRAP_EMAIL,BOOTSTRAP_NAME,COMPOSE_PROJECT_NAME,COMPOSE_FILE sh scripts/backup.sh
-          sudo chown "$(id -u):$(id -g)" .env .secrets .secrets/*
+          # Restore directory access before the runner expands the private glob.
+          sudo chown "$(id -u):$(id -g)" .env .secrets
+          sudo chown "$(id -u):$(id -g)" .secrets/*
           compose down
           backup="$(sudo find backups -mindepth 1 -maxdepth 1 -type d | sort | tail -n 1)"
           test -n "$backup"
