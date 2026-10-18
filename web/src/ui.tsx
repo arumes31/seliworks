@@ -181,11 +181,13 @@ export function ActionForm({
   children,
   label,
   secondary,
+  clearErrorOnInput = false,
 }: {
   onSubmit: (form: FormData) => Promise<void>;
   children: ReactNode;
   label: string;
   secondary?: ReactNode;
+  clearErrorOnInput?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -208,6 +210,7 @@ export function ActionForm({
     <form
       data-dirty={dirty}
       onChange={() => setDirty(true)}
+      onInput={clearErrorOnInput ? () => setError(undefined) : undefined}
       onSubmit={(e) => void submit(e)}
     >
       {children}
