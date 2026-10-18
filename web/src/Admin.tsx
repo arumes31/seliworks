@@ -155,7 +155,12 @@ export function Overview({
           <section className="panel section-block">
             <h2>{t("farms")}</h2>
             {result.data.farms.length ? (
-              <div className="table-wrap">
+              <div
+                className="table-wrap"
+                role="region"
+                aria-label={t("farms")}
+                tabIndex={0}
+              >
                 <table>
                   <thead>
                     <tr>
@@ -366,7 +371,12 @@ export function Entries({
         <Loading />
       ) : entries.length ? (
         <div className="panel table-panel">
-          <div className="table-wrap">
+          <div
+            className="table-wrap"
+            role="region"
+            aria-label={t("entries")}
+            tabIndex={0}
+          >
             <table>
               <thead>
                 <tr>
@@ -656,7 +666,12 @@ export function Management({
         <Loading />
       ) : result.data?.items.length ? (
         <div className="panel table-panel">
-          <div className="table-wrap">
+          <div
+            className="table-wrap"
+            role="region"
+            aria-label={t(kind)}
+            tabIndex={0}
+          >
             <table>
               <thead>
                 <tr>
