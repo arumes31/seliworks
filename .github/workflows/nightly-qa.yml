@@ -3,10 +3,15 @@ on:
   schedule:
     - cron: '17 3 * * *'
   workflow_dispatch:
+  pull_request:
+    paths:
+      - 'scripts/**'
+      - 'compose*.yaml'
+      - '.github/workflows/nightly-qa.yml'
 permissions:
   contents: read
 concurrency:
-  group: nightly-recovery
+  group: nightly-recovery-${{ github.ref }}
   cancel-in-progress: false
 jobs:
   recovery:
@@ -40,7 +45,7 @@ jobs:
       - name: Prepare API persistence probe
         run: |
           cat > "$RUNNER_TEMP/timer-probe.py" <<'PY'
-          import http.cookiejar, json, os, pathlib, urllib.request, uuid
+          import base64, hashlib, hmac, http.cookiejar, json, os, pathlib, struct, time, urllib.request, uuid
           origin = 'http://localhost:16540'
           client = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
           csrf = ''
@@ -51,18 +56,32 @@ jobs:
               req = urllib.request.Request(origin + '/api/v1' + path, data=None if data is None else json.dumps(data).encode(), headers=headers, method=method)
               with client.open(req, timeout=15) as response:
                   return json.load(response)
+          def totp(secret, counter):
+              key = base64.b32decode(secret + '=' * (-len(secret) % 8))
+              digest = hmac.new(key, struct.pack('>Q', counter), hashlib.sha1).digest()
+              offset = digest[-1] & 15
+              return f'{(struct.unpack(">I", digest[offset:offset + 4])[0] & 0x7fffffff) % 1000000:06d}'
+          state = pathlib.Path(os.environ['RUNNER_TEMP']) / 'timer-checkpoint.json'
+          expected = json.loads(state.read_text()) if os.environ['PROBE_MODE'] != 'seed' else None
           password = pathlib.Path('.secrets/bootstrap_password').read_text().strip()
-          api('/auth/login', {'email': os.environ['BOOTSTRAP_EMAIL'], 'password': password})
+          credentials = {'email': os.environ['BOOTSTRAP_EMAIL'], 'password': password}
+          if expected:
+              credentials['totp_code'] = (expected['recovery_code'] if os.environ['MFA_METHOD'] == 'recovery'
+                                          else totp(expected['totp_secret'], int(time.time()) // 30))
+          api('/auth/login', credentials)
           me = api('/me')
           csrf = me['csrf_token']
-          state = pathlib.Path(os.environ['RUNNER_TEMP']) / 'timer-checkpoint.json'
           if os.environ['PROBE_MODE'] == 'seed':
               farm = api('/admin/farms', {'name': 'Recovery farm'})
               api('/admin/workers/' + me['user']['id'] + '/farms', {'farm_ids': [farm['id']]}, 'PUT')
               session = api('/work-sessions/start', {'farm_id': farm['id']})
-              state.write_text(json.dumps({'id': session['id'], 'started_at': session['started_at']}))
+              enrollment = api('/me/totp/enroll', {'password': password})
+              confirmed = api('/me/totp/confirm', {'code': totp(enrollment['secret'], int(time.time()) // 30 - 1)})
+              state.write_text(json.dumps({'id': session['id'], 'started_at': session['started_at'],
+                                           'totp_secret': enrollment['secret'], 'recovery_code': confirmed['recovery_codes'][0]}))
+              state.chmod(0o600)
           else:
-              expected = json.loads(state.read_text())
+              assert me['user']['totp_enabled']
               session = api('/me/active-work-session')
               assert session['id'] == expected['id']
               assert session['started_at'] == expected['started_at']
@@ -78,6 +97,7 @@ jobs:
       - name: Recover the same timer after app and PostgreSQL restart
         env:
           PROBE_MODE: check
+          MFA_METHOD: recovery
         run: |
           compose() { docker compose -p seliworks-nightly-source -f compose.yaml -f compose.dev.yaml "$@"; }
           compose restart postgres app
@@ -86,13 +106,37 @@ jobs:
       - name: Take matched backup and stop source deployment
         run: |
           compose() { docker compose -p seliworks-nightly-source -f compose.yaml -f compose.dev.yaml "$@"; }
-          compose stop app
-          compose --profile backup run --rm backup
+          export COMPOSE_PROJECT_NAME=seliworks-nightly-source
+          export COMPOSE_FILE=compose.yaml:compose.dev.yaml
+          sudo chown root:root .env .secrets .secrets/*
+          sudo chmod 640 .env
+          sudo --preserve-env=APP_URL,APP_ENV,BOOTSTRAP_EMAIL,BOOTSTRAP_NAME,COMPOSE_PROJECT_NAME,COMPOSE_FILE sh scripts/backup.sh
+          # Restore directory access before the runner expands the private glob.
+          sudo chown "$(id -u):$(id -g)" .env .secrets
+          sudo chown "$(id -u):$(id -g)" .secrets/*
           compose down
           backup="$(sudo find backups -mindepth 1 -maxdepth 1 -type d | sort | tail -n 1)"
           test -n "$backup"
           sudo test -f "$backup/COMPLETE"
           echo "RESTORE_DIR=$PWD/$backup" >> "$GITHUB_ENV"
+          sudo python3 scripts/installation-backup.py restore "$PWD/$backup" "$RUNNER_TEMP/restored-configuration"
+          # Discard the original keys. All subsequent Compose services and logins
+          # must use only the recovered configuration, never the live key paths.
+          sudo --preserve-env=RUNNER_TEMP python3 - <<'PY'
+          import os
+          from pathlib import Path
+          source = Path.cwd()
+          restored = Path(os.environ['RUNNER_TEMP']) / 'restored-configuration'
+          owner = source.stat()
+          for path in (source / '.secrets').iterdir():
+              path.unlink()
+          (source / '.secrets').rmdir()
+          (source / '.env').unlink()
+          (restored / '.secrets').rename(source / '.secrets')
+          (restored / '.env').rename(source / '.env')
+          for path in [source / '.env', source / '.secrets', *(source / '.secrets').iterdir()]:
+              os.chown(path, owner.st_uid, owner.st_gid)
+          PY
       - name: Restore to fresh database and private-file volumes
         run: |
           compose() { docker compose -p seliworks-nightly-restore -f compose.yaml -f compose.dev.yaml "$@"; }
@@ -104,13 +148,14 @@ jobs:
       - name: Verify restored credentials, original timer and private file
         env:
           PROBE_MODE: check
+          MFA_METHOD: totp
         run: |
           python3 "$RUNNER_TEMP/timer-probe.py"
           actual="$(docker compose -p seliworks-nightly-restore -f compose.yaml -f compose.dev.yaml exec -T app cat /var/lib/seliworks/recovery-proof.txt)"
           test "$actual" = 'recovery fixture'
-          echo 'Fresh migrations, repeat migration, app/PostgreSQL restart, matched backup and fresh-volume restore passed. This operational probe does not replace the locally maintained full test suites or physical-device checks.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Fresh migrations, repeat migration, app/PostgreSQL restart, matched database/files/configuration backup, replacement of original keys, recovered TOTP login and fresh-volume restore passed. This operational probe does not replace the locally maintained full test suites or physical-device checks.' >> "$GITHUB_STEP_SUMMARY"
       - name: Remove only disposable runner projects
         if: always()
         run: |
-          docker compose -p seliworks-nightly-source -f compose.yaml -f compose.dev.yaml down --volumes --remove-orphans
-          docker compose -p seliworks-nightly-restore -f compose.yaml -f compose.dev.yaml down --volumes --remove-orphans
+          sudo --preserve-env=APP_URL,APP_ENV,BOOTSTRAP_EMAIL,BOOTSTRAP_NAME docker compose -p seliworks-nightly-source -f compose.yaml -f compose.dev.yaml down --volumes --remove-orphans
+          sudo --preserve-env=APP_URL,APP_ENV,BOOTSTRAP_EMAIL,BOOTSTRAP_NAME docker compose -p seliworks-nightly-restore -f compose.yaml -f compose.dev.yaml down --volumes --remove-orphans
