@@ -10,6 +10,7 @@ playwright-report/
 *.log
 .secrets/
 backups/
+.backup.lock
 
 # Local tests and test tooling (intentionally excluded from publication).
 *_test.go

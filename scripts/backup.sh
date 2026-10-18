@@ -15,7 +15,7 @@ print(paths[0])
 ')"
 test -d "$backup_root"
 # Keep overlapping manual/timer backups from restarting each other's app.
-exec 9>"$backup_root/.backup.lock"
+exec 9>.backup.lock
 flock -n 9 || { echo 'Another backup is running.' >&2; exit 1; }
 BACKUP_ID="$(date -u +%Y%m%dT%H%M%SZ)"
 export BACKUP_ID
