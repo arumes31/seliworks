@@ -70,7 +70,12 @@ export function Rates({
         <Loading />
       ) : result.data?.items.length ? (
         <div className="panel table-panel">
-          <div className="table-wrap">
+          <div
+            className="table-wrap"
+            role="region"
+            aria-label={t("rates")}
+            tabIndex={0}
+          >
             <table>
               <thead>
                 <tr>
@@ -519,7 +524,12 @@ export function Invoices({
         <Loading />
       ) : result.data?.items.length ? (
         <div className="panel table-panel">
-          <div className="table-wrap">
+          <div
+            className="table-wrap"
+            role="region"
+            aria-label={t("invoices")}
+            tabIndex={0}
+          >
             <table>
               <thead>
                 <tr>
