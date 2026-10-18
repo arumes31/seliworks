@@ -1,10 +1,10 @@
-import { useId, useState } from "react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
 
 import { ArrowRight, Eye, EyeOff, Leaf, ShieldCheck } from "lucide-react";
 
 import type { Auth } from "./api";
 
-import { api } from "./api";
+import { api, APIError } from "./api";
 
 import { useI18n } from "./i18n";
 
@@ -19,7 +19,17 @@ export function Login({
 }) {
   const { t, lang } = useI18n();
   const [show, setShow] = useState(false);
+  const [mfaRequired, setMfaRequired] = useState(false);
+  const codeInput = useRef<HTMLInputElement>(null);
+  const credentialsVersion = useRef(0);
   const passwordId = useId();
+  useLayoutEffect(() => {
+    if (mfaRequired) codeInput.current?.focus();
+  }, [mfaRequired]);
+  function credentialsChanged() {
+    credentialsVersion.current++;
+    setMfaRequired(false);
+  }
   return (
     <main className="login">
       <section className="login-art">
@@ -63,15 +73,30 @@ export function Login({
           <p className="muted">{t("loginIntro")}</p>
           <ActionForm
             label={t("signIn")}
-            onSubmit={async (form) =>
-              onLogin(
-                await api<Auth>("/auth/login", "POST", {
+            clearErrorOnInput
+            onSubmit={async (form) => {
+              const version = credentialsVersion.current;
+              try {
+                const auth = await api<Auth>("/auth/login", "POST", {
                   email: form.get("email"),
                   password: form.get("password"),
-                  totp_code: form.get("totp_code"),
-                }),
-              )
-            }
+                  totp_code: form.get("totp_code") ?? "",
+                });
+                onLogin(auth);
+              } catch (error) {
+                // Ignore challenges for credentials edited while the request was pending.
+                if (version !== credentialsVersion.current) return;
+                if (error instanceof APIError) {
+                  if (error.code === "MFA_REQUIRED") {
+                    setMfaRequired(true);
+                    codeInput.current?.focus();
+                  } else if (error.code === "INVALID_CREDENTIALS") {
+                    setMfaRequired(false);
+                  }
+                }
+                throw error;
+              }
+            }}
           >
             <Field label={t("email")}>
               <input
@@ -81,6 +106,7 @@ export function Login({
                 required
                 autoFocus
                 maxLength={254}
+                onInput={credentialsChanged}
               />
             </Field>
             <Field label={t("password")} controlId={passwordId}>
@@ -92,6 +118,7 @@ export function Login({
                   autoComplete="current-password"
                   required
                   maxLength={256}
+                  onInput={credentialsChanged}
                 />
                 <button
                   type="button"
@@ -103,13 +130,17 @@ export function Login({
                 </button>
               </div>
             </Field>
-            <Field label={t("mfa")}>
-              <input
-                name="totp_code"
-                autoComplete="one-time-code"
-                maxLength={64}
-              />
-            </Field>
+            {mfaRequired && (
+              <Field label={t("mfa")}>
+                <input
+                  ref={codeInput}
+                  name="totp_code"
+                  autoComplete="one-time-code"
+                  required
+                  maxLength={64}
+                />
+              </Field>
+            )}
           </ActionForm>
           <p className="login-help">{t("loginHelp")}</p>
           <div className="secure-note">
