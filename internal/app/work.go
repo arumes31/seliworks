@@ -43,7 +43,11 @@ func (a *App) registerCore(m *http.ServeMux) {
 }
 func (a *App) farms(w http.ResponseWriter, r *http.Request) {
 	u := actor(r)
-	items, e := queryItems(r.Context(), a.DB, `SELECT to_jsonb(f) FROM farms f WHERE f.active AND ($2 OR EXISTS(SELECT 1 FROM worker_farms wf WHERE wf.farm_id=f.id AND wf.worker_id=$1)) ORDER BY f.name`, u.ID, u.IsAdmin)
+	projection := `jsonb_build_object('id',f.id,'name',f.name,'active',f.active,'version',f.version)`
+	if u.IsAdmin {
+		projection = `to_jsonb(f)`
+	}
+	items, e := queryItems(r.Context(), a.DB, `SELECT `+projection+` FROM farms f WHERE f.active AND ($2 OR EXISTS(SELECT 1 FROM worker_farms wf WHERE wf.farm_id=f.id AND wf.worker_id=$1)) ORDER BY f.name`, u.ID, u.IsAdmin)
 	if e != nil {
 		handleError(w, r, e)
 		return
@@ -101,6 +105,10 @@ func (a *App) listSessions(w http.ResponseWriter, r *http.Request) {
 	u := actor(r)
 	p, n := pageParams(r)
 	q := r.URL.Query()
+	if !u.IsAdmin && q.Get("billing") != "" {
+		fail(w, r, 403, "FORBIDDEN", "Billing filters require administrator access")
+		return
+	}
 	where := ` WHERE ($1 OR s.worker_id=$2) AND ($3='' OR s.state=$3) AND ($4='' OR s.farm_id=NULLIF($4,'')::uuid) AND ($5='' OR s.worker_id=NULLIF($5,'')::uuid) AND ($6='' OR coalesce(s.effective_stop,'infinity')>(NULLIF($6,'')::date::timestamp AT TIME ZONE o.timezone)) AND ($7='' OR s.effective_start<(NULLIF($7,'')::date::timestamp AT TIME ZONE o.timezone)) AND ($8='' OR s.description ILIKE '%'||$8||'%' OR u.name ILIKE '%'||$8||'%' OR f.name ILIKE '%'||$8||'%')`
 	args := []any{u.IsAdmin, u.ID, q.Get("state"), q.Get("farm_id"), q.Get("worker_id"), q.Get("from"), q.Get("to"), q.Get("search")}
 	// Filter and sort before pagination; identifiers and clauses come only from this allow-list.
