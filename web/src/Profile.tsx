@@ -103,7 +103,7 @@ export function Profile({
             </Field>
           </ActionForm>
         </section>
-        {auth.user.is_admin && <TwoFactor auth={auth} onRefresh={onRefresh} />}
+        <TwoFactor auth={auth} onRefresh={onRefresh} />
         <section className="panel">
           <h2>
             <Smartphone size={21} />
