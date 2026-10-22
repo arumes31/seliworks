@@ -130,7 +130,13 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 		handleError(w, r, e)
 		return
 	}
-	if e := a.limit(r.Context(), "login-account:"+in.Email, 15); e != nil {
+	// Hard-block guessing per account and source; the account-wide bucket only stops distributed guessing,
+	// so a single client knowing an email address cannot lock that user out from their own network.
+	if e := a.limit(r.Context(), "login-account-ip:"+in.Email+"|"+a.clientIP(r), 15); e != nil {
+		handleError(w, r, e)
+		return
+	}
+	if e := a.limit(r.Context(), "login-account:"+in.Email, 100); e != nil {
 		handleError(w, r, e)
 		return
 	}

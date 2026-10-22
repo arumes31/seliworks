@@ -111,9 +111,9 @@ func (a *App) verifyMFA(ctx context.Context, tx pgx.Tx, userID, code string) err
 	return problem(401, "MFA_REQUIRED", "Enter a current authenticator code or an unused recovery code")
 }
 func (a *App) registerTOTP(m *http.ServeMux) {
-	m.HandleFunc("POST /api/v1/me/totp/enroll", a.requireAdmin(a.enrollTOTP))
-	m.HandleFunc("POST /api/v1/me/totp/confirm", a.requireAdmin(a.confirmTOTP))
-	m.HandleFunc("POST /api/v1/me/totp/disable", a.requireAdmin(a.disableTOTP))
+	m.HandleFunc("POST /api/v1/me/totp/enroll", a.requireAuth(a.enrollTOTP))
+	m.HandleFunc("POST /api/v1/me/totp/confirm", a.requireAuth(a.confirmTOTP))
+	m.HandleFunc("POST /api/v1/me/totp/disable", a.requireAuth(a.disableTOTP))
 }
 func (a *App) enrollTOTP(w http.ResponseWriter, r *http.Request) {
 	if len(a.Config.TOTPKey) != 32 {
