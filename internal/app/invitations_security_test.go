@@ -268,17 +268,17 @@ func TestInvitationSecurityConcurrentDeactivation(t *testing.T) {
 	id := created["id"].(string)
 	raw := invitationSecurityIssue(t, a, admin, id)
 	var wg sync.WaitGroup
-	responses := make(chan *httptest.ResponseRecorder, 2)
+	var deactivation, redemption *httptest.ResponseRecorder
 	wg.Go(func() {
-		responses <- invitationSecurityCall(a, admin, a.updateWorker, id, map[string]any{"version": created["version"], "active": false})
+		deactivation = invitationSecurityCall(a, admin, a.updateWorker, id, map[string]any{"version": created["version"], "active": false})
 	})
-	wg.Go(func() { responses <- invitationSecurityRedeem(a, raw) })
+	wg.Go(func() { redemption = invitationSecurityRedeem(a, raw) })
 	wg.Wait()
-	close(responses)
-	for w := range responses {
-		if w.Code != http.StatusOK && w.Code != http.StatusConflict && w.Code != http.StatusUnprocessableEntity {
-			t.Fatalf("unexpected race response: %d %s", w.Code, w.Body.String())
-		}
+	switch {
+	case deactivation.Code == http.StatusOK && redemption.Code == http.StatusUnprocessableEntity:
+	case deactivation.Code == http.StatusConflict && redemption.Code == http.StatusOK:
+	default:
+		t.Fatalf("invalid race outcome: deactivation=%d redemption=%d", deactivation.Code, redemption.Code)
 	}
 	// If setup wins it increments the version. Apply the administrator's intent
 	// with the current version, as the UI does after an optimistic conflict.

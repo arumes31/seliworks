@@ -70,6 +70,11 @@ jobs:
           npm run typecheck
           npx --no-install prettier --check src index.html vite.config.ts tsconfig.json
           npm run build
+      - name: Verify onboarding edits in Chromium
+        working-directory: web
+        run: |
+          npx --no-install playwright install --with-deps chromium
+          node --test test/invitations-security.browser.mjs
       - name: Build Go application
         run: go build -trimpath -o /tmp/seliworks ./cmd/seliworks
       - name: Validate production and development Compose

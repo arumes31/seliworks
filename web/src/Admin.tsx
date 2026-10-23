@@ -762,7 +762,9 @@ export function Management({
               }
               if (editing) {
                 body.version = editing.version;
-                body.active = form.get("active") === "on";
+                const active = form.get("active") === "on";
+                if (kind !== "workers" || active !== editing.active)
+                  body.active = active;
               }
               if (kind === "workers") {
                 body.is_admin = form.get("is_admin") === "on";
