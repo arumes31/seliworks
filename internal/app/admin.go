@@ -166,6 +166,9 @@ func (a *App) updateWorker(w http.ResponseWriter, r *http.Request) {
 	if e == nil {
 		_, e = tx.Exec(r.Context(), `DELETE FROM auth_sessions WHERE user_id=$1`, id)
 	}
+	if e == nil && in.Active != nil && !*in.Active {
+		_, e = tx.Exec(r.Context(), `DELETE FROM invitations WHERE user_id=$1 AND used_at IS NULL`, id)
+	}
 	if e == nil {
 		e = a.audit(r.Context(), tx, actor(r).ID, "user.update", id, old, next)
 	}
