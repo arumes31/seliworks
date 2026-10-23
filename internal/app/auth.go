@@ -333,6 +333,9 @@ func (a *App) password(w http.ResponseWriter, r *http.Request) {
 		_, e = tx.Exec(r.Context(), `DELETE FROM auth_sessions WHERE user_id=$1`, actor(r).ID)
 	}
 	if e == nil {
+		_, e = tx.Exec(r.Context(), `DELETE FROM invitations WHERE user_id=$1 AND used_at IS NULL`, actor(r).ID)
+	}
+	if e == nil {
 		e = a.audit(r.Context(), tx, actor(r).ID, "auth.password_changed", actor(r).ID, nil, nil)
 	}
 	if e == nil {

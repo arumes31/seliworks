@@ -14,6 +14,7 @@ backups/
 
 # Local tests and test tooling (intentionally excluded from publication).
 *_test.go
+!internal/app/invitations_security_test.go
 *.test.*
 *.spec.*
 web/test/

@@ -47,6 +47,9 @@ func (a *App) Bootstrap(ctx context.Context, reset bool) error {
 			_, e = tx.Exec(ctx, `DELETE FROM auth_sessions WHERE user_id=$1`, id)
 		}
 		if e == nil {
+			_, e = tx.Exec(ctx, `DELETE FROM invitations WHERE user_id=$1 AND used_at IS NULL`, id)
+		}
+		if e == nil {
 			_, e = tx.Exec(ctx, `DELETE FROM user_totp WHERE user_id=$1`, id)
 		}
 		if e == nil {

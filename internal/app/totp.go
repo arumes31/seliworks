@@ -197,6 +197,12 @@ func (a *App) confirmTOTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback(r.Context())
+	// Match setup/password lock order so MFA activation and setup revocation are atomic.
+	var id string
+	if e = tx.QueryRow(r.Context(), `SELECT id::text FROM users WHERE id=$1 FOR UPDATE`, actor(r).ID).Scan(&id); e != nil {
+		handleError(w, r, e)
+		return
+	}
 	var encrypted []byte
 	var now time.Time
 	e = tx.QueryRow(r.Context(), `SELECT pending_secret,clock_timestamp() FROM user_totp WHERE user_id=$1 AND NOT enabled AND updated_at>clock_timestamp()-interval '15 minutes' FOR UPDATE`, actor(r).ID).Scan(&encrypted, &now)
@@ -227,6 +233,9 @@ func (a *App) confirmTOTP(w http.ResponseWriter, r *http.Request) {
 	v := r.Context().Value(authKey{}).(authContext)
 	if e == nil {
 		_, e = tx.Exec(r.Context(), `DELETE FROM auth_sessions WHERE user_id=$1 AND token_hash<>$2`, actor(r).ID, v.TokenHash)
+	}
+	if e == nil {
+		_, e = tx.Exec(r.Context(), `DELETE FROM invitations WHERE user_id=$1 AND used_at IS NULL`, actor(r).ID)
 	}
 	if e == nil {
 		e = a.audit(r.Context(), tx, actor(r).ID, "auth.totp_enabled", actor(r).ID, nil, nil)
