@@ -110,6 +110,10 @@ export class APIError extends Error {
   }
 }
 let csrf = "";
+let pendingWrites = 0;
+export function hasPendingWrites() {
+  return pendingWrites > 0;
+}
 export function setCSRF(value: string) {
   csrf = value;
 }
@@ -122,6 +126,7 @@ export async function api<T>(
   const payload = body === undefined ? undefined : JSON.stringify(body);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 20000);
+  if (method !== "GET") pendingWrites++;
   try {
     const response = await fetch("/api/v1" + path, {
       method,
@@ -173,6 +178,7 @@ export async function api<T>(
       );
     throw error;
   } finally {
+    if (method !== "GET") pendingWrites--;
     clearTimeout(timeout);
   }
 }

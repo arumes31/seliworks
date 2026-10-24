@@ -41,6 +41,7 @@ import { Settings } from "./Settings";
 import { Invoices, Rates, Reports } from "./Billing";
 
 import { Brand, ErrorNotice, Loading } from "./ui";
+import { useAppUpdates } from "./app-updates";
 
 const adminNav = [
   ["overview", LayoutDashboard],
@@ -82,8 +83,7 @@ export default function App() {
   const [preferenceError, setPreferenceError] = useState<unknown>();
   const entityGeneration = useRef(0);
   const [install, setInstall] = useState<InstallPrompt>();
-  const [registration, setRegistration] = useState<ServiceWorkerRegistration>();
-  const [update, setUpdate] = useState(false);
+  const update = useAppUpdates();
 
   const t = (key: Key): string => (lang === "de" ? de : en)[key];
   const locale = lang === "de" ? "de-AT" : "en-GB";
@@ -198,27 +198,6 @@ export default function App() {
       setInstall(event as InstallPrompt);
     };
     window.addEventListener("beforeinstallprompt", installHandler);
-    if ("serviceWorker" in navigator) {
-      void navigator.serviceWorker
-        .register("/sw.js")
-        .then((reg) => {
-          setRegistration(reg);
-          if (reg.waiting) setUpdate(true);
-          reg.addEventListener("updatefound", () => {
-            const worker = reg.installing;
-            worker?.addEventListener("statechange", () => {
-              if (
-                worker.state === "installed" &&
-                navigator.serviceWorker.controller
-              )
-                setUpdate(true);
-            });
-          });
-        })
-        .catch(() => {
-          /* Installation remains optional; all work requires the server. */
-        });
-    }
     return () =>
       window.removeEventListener("beforeinstallprompt", installHandler);
   }, []);
@@ -499,30 +478,6 @@ export default function App() {
               {update && (
                 <div className="notice update-notice">
                   <span>{t("installReady")}</span>
-                  <button
-                    className="button secondary"
-                    onClick={() => {
-                      const waiting = registration?.waiting;
-                      if (!waiting) return;
-                      if (
-                        document.querySelector('form[data-dirty="true"]') &&
-                        !window.confirm(t("unsavedUpdate"))
-                      )
-                        return;
-                      document.documentElement.dataset.allowReload = "true";
-                      const reload = () => window.location.reload();
-                      navigator.serviceWorker.addEventListener(
-                        "controllerchange",
-                        reload,
-                        { once: true },
-                      );
-                      waiting.postMessage({
-                        type: "SKIP_WAITING",
-                      });
-                    }}
-                  >
-                    {t("update")}
-                  </button>
                 </div>
               )}
               {loadError !== undefined && (

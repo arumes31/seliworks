@@ -264,7 +264,8 @@ export const en = {
   installHelp:
     "On Android, use the browser menu and choose Install app. On iPhone, open in Safari, tap Share, then Add to Home Screen. Your timer stays on the server in either mode.",
   install: "Install app",
-  installReady: "An app update is ready. Save any open form, then update.",
+  installReady:
+    "An app update will install automatically after you save or close open forms and pending actions finish.",
   update: "Update app",
   timezone: "Organization timezone",
   currency: "Currency",
@@ -643,7 +644,7 @@ export const de: Record<Key, string> = {
     "Unter Android im Browsermenü „App installieren“ wählen. Am iPhone in Safari auf „Teilen“ und dann „Zum Home-Bildschirm“ tippen. Deine Zeit läuft in beiden Fällen auf dem Server.",
   install: "App installieren",
   installReady:
-    "Ein App-Update ist verfügbar. Speichere offene Formulare und aktualisiere anschließend.",
+    "Ein App-Update wird automatisch installiert, sobald offene Formulare gespeichert oder geschlossen und laufende Aktionen abgeschlossen sind.",
   update: "App aktualisieren",
   timezone: "Zeitzone der Organisation",
   currency: "Währung",

@@ -22,6 +22,7 @@ web/test/*
 !web/test/invitations-security.browser.mjs
 !web/test/connection.browser.mjs
 !web/test/connection.test.mjs
+!web/test/updates.browser.mjs
 web/e2e/
 web/playwright*.config.*
 scripts/check.sh

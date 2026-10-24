@@ -76,6 +76,7 @@ jobs:
           npx --no-install playwright install --with-deps chromium
           node --test test/invitations-security.browser.mjs
           node --test test/connection.test.mjs test/connection.browser.mjs
+          node --test test/updates.browser.mjs
       - name: Build Go application
         run: go build -trimpath -o /tmp/seliworks ./cmd/seliworks
       - name: Validate production and development Compose

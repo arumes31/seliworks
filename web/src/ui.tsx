@@ -209,6 +209,7 @@ export function ActionForm({
   return (
     <form
       data-dirty={dirty}
+      data-busy={busy}
       onChange={() => setDirty(true)}
       onInput={clearErrorOnInput ? () => setError(undefined) : undefined}
       onSubmit={(e) => void submit(e)}
