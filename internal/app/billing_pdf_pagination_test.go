@@ -26,6 +26,9 @@ func TestInvoicePDFKeepsDetailBlocksTogether(t *testing.T) {
 				t.Fatal(err)
 			}
 			pages := invoicePageStreams(t, raw)
+			if len(pages) < 2 {
+				t.Fatal("pagination fixture must span multiple pages")
+			}
 			for i, item := range d.Items {
 				start := pdfMarkerPage(t, pages, item.Worker)
 				end := pdfMarkerPage(t, pages, "Base rate / Basissatz: "+item.Pricing.Segments[0].BaseRate+" EUR/h")
@@ -121,8 +124,8 @@ func paginationInvoice(t *testing.T) invoiceDocument {
 func invoicePageStreams(t *testing.T, raw []byte) [][]byte {
 	t.Helper()
 	refs := regexp.MustCompile(`(?s)/Type /Page\s.*?/Contents (\d+) 0 R`).FindAllSubmatch(raw, -1)
-	if len(refs) < 2 {
-		t.Fatal("fixture must produce multiple pages")
+	if len(refs) == 0 {
+		t.Fatal("PDF must contain page objects")
 	}
 	var pages [][]byte
 	for _, ref := range refs {

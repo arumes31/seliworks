@@ -1,4 +1,10 @@
 const de: Record<string, string> = {
+  TIMESHEET_PERIOD:
+    "Wähle gültige Von-/Bis-Daten für höchstens ein Jahr. Beide Tage werden eingeschlossen.",
+  TIMESHEET_EMPTY:
+    "In diesem Zeitraum gibt es keine beendeten Arbeitseinträge.",
+  TIMESHEET_TOO_LARGE:
+    "Zu viele Einträge oder zu viel Text. Wähle einen kürzeren Zeitraum.",
   PASSKEY_INVALID:
     "Der Passkey konnte nicht bestätigt werden oder die Anfrage ist abgelaufen. Starte den Vorgang erneut.",
   PASSKEY_LIMIT:
