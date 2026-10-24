@@ -160,6 +160,17 @@ export function Worker({
     setError(undefined);
     try {
       const session = await api<Work>(next.path, "POST", next.body, next.key);
+      if (
+        !session ||
+        typeof session !== "object" ||
+        typeof session.id !== "string" ||
+        !("stopped_at" in session)
+      )
+        throw new APIError(
+          200,
+          "The server returned an unreadable work session. Check the current state before trying again.",
+          "INVALID_RESPONSE",
+        );
       setCommand(undefined);
       sessionStorage.removeItem("seliworks:" + user.id + ":pending-command");
       if (session.stopped_at) {

@@ -32,6 +32,10 @@ func TestGermanActivitiesMigration(t *testing.T) {
 		t.Fatal(err)
 	}
 	custom := invitationSecurityOK(t, invitationSecurityCall(a, admin, a.saveBusiness("activities", false), "", map[string]any{"name": "Field work"}))
+	invitationSecurityOK(t, invitationSecurityCall(a, admin, a.saveBusiness("activities", false), "", map[string]any{"name": "Erntearbeit"}))
+	if _, err := a.DB.Exec(ctx, `INSERT INTO activities(name) VALUES('Harvesting')`); err != nil {
+		t.Fatal(err)
+	}
 	for range 2 {
 		if err := Migrate(ctx, a.DB); err != nil {
 			t.Fatal(err)
@@ -49,5 +53,11 @@ func TestGermanActivitiesMigration(t *testing.T) {
 	}
 	if !valid {
 		t.Fatal("migration renamed an administrator-created activity")
+	}
+	if err := a.DB.QueryRow(ctx, `SELECT (SELECT count(*) FROM activities WHERE name='Erntearbeit')=1 AND EXISTS(SELECT 1 FROM activities WHERE name='Harvesting' AND version=1)`).Scan(&valid); err != nil {
+		t.Fatal(err)
+	}
+	if !valid {
+		t.Fatal("migration duplicated an existing German activity")
 	}
 }

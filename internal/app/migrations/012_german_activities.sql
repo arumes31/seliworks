@@ -11,6 +11,7 @@ FROM (VALUES
  ('Other', 'Sonstiges')
 ) AS names(english, german)
 WHERE a.name = names.english AND a.version = 1
+AND NOT EXISTS (SELECT 1 FROM activities AS existing WHERE existing.name = names.german)
 AND NOT EXISTS (
  SELECT 1 FROM audit_events AS event
  WHERE event.action = 'activities.save' AND event.entity_id = a.id::text

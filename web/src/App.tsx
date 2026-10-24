@@ -79,6 +79,7 @@ export default function App() {
   const [activities, setActivities] = useState<Entity[]>([]);
   const [workers, setWorkers] = useState<Entity[]>([]);
   const [loadError, setLoadError] = useState<unknown>();
+  const [preferenceError, setPreferenceError] = useState<unknown>();
   const entityGeneration = useRef(0);
   const [install, setInstall] = useState<InstallPrompt>();
   const [registration, setRegistration] = useState<ServiceWorkerRegistration>();
@@ -151,7 +152,8 @@ export default function App() {
 
   useEffect(() => {
     const recover = () => {
-      if (loadError !== undefined && !document.hidden) void loadEntities();
+      // Refresh even when the interrupted request has not rejected yet.
+      if (!document.hidden) void loadEntities();
     };
     window.addEventListener("online", recover);
     window.addEventListener("focus", recover);
@@ -161,7 +163,7 @@ export default function App() {
       window.removeEventListener("focus", recover);
       document.removeEventListener("visibilitychange", recover);
     };
-  }, [loadEntities, loadError]);
+  }, [loadEntities]);
 
   useEffect(() => {
     const handler = () => setRoute(initialRoute());
@@ -246,6 +248,8 @@ export default function App() {
       }
     }
     setAuth(null);
+    setLoadError(undefined);
+    setPreferenceError(undefined);
     setFarms([]);
     setActivities([]);
     setWorkers([]);
@@ -469,6 +473,7 @@ export default function App() {
                   className="language-button"
                   onClick={() => {
                     const language = lang === "en" ? "de" : "en";
+                    setPreferenceError(undefined);
                     void api<User | { user: User }>("/me", "PATCH", {
                       language,
                       theme: auth.user.theme,
@@ -476,7 +481,7 @@ export default function App() {
                       .then((result) =>
                         updateUser("user" in result ? result.user : result),
                       )
-                      .catch(setLoadError);
+                      .catch(setPreferenceError);
                   }}
                 >
                   {lang.toUpperCase()}
@@ -526,6 +531,19 @@ export default function App() {
                   retry={() => void loadEntities()}
                 />
               )}{" "}
+              {preferenceError !== undefined && (
+                <ErrorNotice
+                  error={preferenceError}
+                  retry={() => {
+                    void api<Auth>("/me")
+                      .then((value) => {
+                        acceptAuth(value);
+                        setPreferenceError(undefined);
+                      })
+                      .catch(setPreferenceError);
+                  }}
+                />
+              )}
               {content}
             </main>
           </div>
