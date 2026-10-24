@@ -315,6 +315,13 @@ export const en = {
   newRecord: "New record",
   manualEntry: "Add manual entry",
   assignFarms: "Assigned farms",
+  workerAssignment: "Worker assignment",
+  allWorkersAssignment: "All workers – including future workers",
+  selectedWorkersAssignment: "Selected workers",
+  allWorkersAssignmentHint:
+    "Current and future workers can start work for this farm automatically.",
+  selectedWorkersAssignmentHint:
+    "Only the selected workers can start work for this farm. You can change this assignment later.",
   hourlyRate: "Hourly rate",
   effectiveFrom: "Effective from",
   effectiveTo: "Effective until (optional)",
@@ -722,6 +729,13 @@ export const de: Record<Key, string> = {
   newRecord: "Neuer Eintrag",
   manualEntry: "Manuellen Eintrag erstellen",
   assignFarms: "Zugewiesene Betriebe",
+  workerAssignment: "Mitarbeitende zuweisen",
+  allWorkersAssignment: "Alle Mitarbeitenden – auch zukünftige",
+  selectedWorkersAssignment: "Einzelne Mitarbeitende",
+  allWorkersAssignmentHint:
+    "Bestehende und zukünftige Mitarbeitende können für diesen Betrieb automatisch Arbeit starten.",
+  selectedWorkersAssignmentHint:
+    "Nur ausgewählte Mitarbeitende können für diesen Betrieb Arbeit starten. Die Zuweisung kannst du später ändern.",
   hourlyRate: "Stundensatz",
   effectiveFrom: "Gültig ab",
   effectiveTo: "Gültig bis (optional)",

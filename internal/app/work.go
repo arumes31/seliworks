@@ -47,7 +47,7 @@ func (a *App) farms(w http.ResponseWriter, r *http.Request) {
 	if u.IsAdmin {
 		projection = `to_jsonb(f)`
 	}
-	items, e := queryItems(r.Context(), a.DB, `SELECT `+projection+` FROM farms f WHERE f.active AND ($2 OR EXISTS(SELECT 1 FROM worker_farms wf WHERE wf.farm_id=f.id AND wf.worker_id=$1)) ORDER BY f.name`, u.ID, u.IsAdmin)
+	items, e := queryItems(r.Context(), a.DB, `SELECT `+projection+` FROM farms f WHERE f.active AND ($2 OR f.assign_all_workers OR EXISTS(SELECT 1 FROM worker_farms wf WHERE wf.farm_id=f.id AND wf.worker_id=$1)) ORDER BY f.name`, u.ID, u.IsAdmin)
 	if e != nil {
 		handleError(w, r, e)
 		return
@@ -242,6 +242,9 @@ func (a *App) start(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v, e := a.command(r, "work.start", in, func(tx pgx.Tx) (any, error) {
+		if _, e := tx.Exec(r.Context(), `SELECT pg_advisory_xact_lock_shared($1)`, farmAssignmentLock); e != nil {
+			return nil, e
+		}
 		var active, worker bool
 		if e := tx.QueryRow(r.Context(), `SELECT active,is_worker FROM users WHERE id=$1 FOR UPDATE`, u.ID).Scan(&active, &worker); e != nil {
 			return nil, e
@@ -250,7 +253,7 @@ func (a *App) start(w http.ResponseWriter, r *http.Request) {
 			return nil, problem(403, "FORBIDDEN", "Worker is inactive")
 		}
 		var allowed bool
-		if e := tx.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM farms f JOIN worker_farms wf ON wf.farm_id=f.id WHERE f.id=$1 AND wf.worker_id=$2 AND f.active)`, in.FarmID, u.ID).Scan(&allowed); e != nil {
+		if e := tx.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM farms f WHERE f.id=$1 AND f.active AND (f.assign_all_workers OR EXISTS(SELECT 1 FROM worker_farms wf WHERE wf.farm_id=f.id AND wf.worker_id=$2)))`, in.FarmID, u.ID).Scan(&allowed); e != nil {
 			return nil, e
 		}
 		if !allowed {

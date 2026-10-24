@@ -297,6 +297,7 @@ export default function App() {
             key={current}
             kind={current as "workers" | "farms" | "activities"}
             farms={farms}
+            workers={workers}
             onChanged={() => void loadEntities()}
           />
         );
