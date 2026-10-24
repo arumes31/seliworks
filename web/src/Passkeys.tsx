@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Auth, List } from "./api";
 import { api } from "./api";
 import { useData } from "./hooks";
@@ -163,23 +163,71 @@ export function Passkeys({
 export function PasskeyPrompt({
   auth,
   onSetup,
+  onChange,
 }: {
   auth: Auth;
   onSetup: () => void;
+  onChange: (auth: Auth) => void;
 }) {
   const { t } = useI18n();
-  const [dismissed, setDismissed] = useState(false);
-  if (auth.user.passkey_count !== 0 || dismissed || !passkeysSupported())
+  const [days, setDays] = useState(3);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>();
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const tick = () => setNow(Date.now());
+    const timer = window.setInterval(tick, 60_000);
+    window.addEventListener("focus", tick);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", tick);
+      document.removeEventListener("visibilitychange", tick);
+    };
+  }, []);
+  const snoozed =
+    auth.user.passkey_remind_after &&
+    Date.parse(auth.user.passkey_remind_after) > now;
+  if (auth.user.passkey_count !== 0 || snoozed || !passkeysSupported())
     return null;
+  async function remindLater() {
+    setBusy(true);
+    setError(undefined);
+    try {
+      onChange(await api<Auth>("/me/passkeys/reminder", "POST", { days }));
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  }
   return (
     <aside className="notice" aria-label={t("passkeys")}>
       <strong>{t("passkeyPrompt")}</strong>
       <p>{t("passkeysDescription")}</p>
+      {error !== undefined && <ErrorNotice error={error} />}
+      <Field label={t("passkeyRemindIn")}>
+        <select
+          value={days}
+          disabled={busy}
+          onChange={(event) => setDays(Number(event.target.value))}
+        >
+          {[3, 4, 5, 6, 7].map((value) => (
+            <option key={value} value={value}>
+              {value} {t("days")}
+            </option>
+          ))}
+        </select>
+      </Field>
       <div className="form-actions">
-        <button className="button secondary" onClick={() => setDismissed(true)}>
-          {t("later")}
+        <button
+          className="button secondary"
+          disabled={busy}
+          onClick={() => void remindLater()}
+        >
+          {t("passkeyRemindLater")}
         </button>
-        <button className="button primary" onClick={onSetup}>
+        <button className="button primary" disabled={busy} onClick={onSetup}>
           {t("setupPasskey")}
         </button>
       </div>

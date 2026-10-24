@@ -117,6 +117,8 @@ export const en = {
   passkeyNameExample: "e.g. Phone or security key",
   passkeyPrompt: "Set up a passkey for your next sign-in",
   later: "Later",
+  passkeyRemindLater: "Remind me later",
+  passkeyRemindIn: "Remind me again in",
   setupPasskey: "Set up passkey",
   passkeySignIn: "Sign in with a passkey",
 
@@ -526,6 +528,8 @@ export const de: Record<Key, string> = {
   passkeyNameExample: "z. B. Smartphone oder Sicherheitsschlüssel",
   passkeyPrompt: "Passkey für deine nächste Anmeldung einrichten",
   later: "Später",
+  passkeyRemindLater: "Später erinnern",
+  passkeyRemindIn: "Erneut erinnern in",
   setupPasskey: "Passkey einrichten",
   passkeySignIn: "Mit Passkey anmelden",
 
