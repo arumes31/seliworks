@@ -506,6 +506,22 @@ export default function App() {
                   key={auth.user.id}
                   auth={auth}
                   onSetup={() => navigate("profile")}
+                  onChange={(value) =>
+                    setAuth((current) =>
+                      current?.user.id === value.user.id &&
+                      current.csrf_token === value.csrf_token
+                        ? {
+                            ...current,
+                            user: {
+                              ...current.user,
+                              passkey_remind_after:
+                                value.user.passkey_remind_after,
+                              passkey_count: value.user.passkey_count,
+                            },
+                          }
+                        : current,
+                    )
+                  }
                 />
               )}
               {content}

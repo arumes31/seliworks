@@ -12,6 +12,7 @@ export interface User {
   version: number;
   totp_enabled?: boolean;
   passkey_count?: number;
+  passkey_remind_after?: string | null;
 }
 export interface Organization {
   name: string;

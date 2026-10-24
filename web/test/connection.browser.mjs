@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { after, before, test } from "node:test";
 import { setTimeout } from "node:timers/promises";
-import { chromium } from "@playwright/test";
+import { chromium, expect } from "@playwright/test";
 
 const origin = "http://127.0.0.1:4180";
 let server;
@@ -193,7 +193,7 @@ test("online before the old request rejects supersedes the failed load", async (
     await page
       .getByRole("heading", { name: "Tätigkeiten", exact: true })
       .waitFor();
-    assert.ok(pending);
+    await expect.poll(() => Boolean(pending)).toBe(true);
     const recovered = page.waitForResponse((r) =>
       r.url().endsWith("/api/v1/farms"),
     );

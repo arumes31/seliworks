@@ -203,7 +203,12 @@ func TestPasskeysLifecycleAndIsolation(t *testing.T) {
 	c := newPasskeyTestClient(t, a, u)
 	first := newSoftwarePasskey(t, u.ID)
 	second := newSoftwarePasskey(t, u.ID)
+	passkeyStatus(t, c.call("POST", "/me/passkeys/reminder", map[string]int{"days": 7}), 200)
 	firstID := registerSoftwarePasskey(t, c, first, "Phone")
+	me := invitationSecurityOK(t, c.call("GET", "/me", nil))
+	if me["user"].(map[string]any)["passkey_remind_after"] != nil {
+		t.Fatal("registration did not clear reminder")
+	}
 	registerSoftwarePasskey(t, c, second, "Security key")
 	list := c.call("GET", "/me/passkeys", nil)
 	passkeyStatus(t, list, 200)
@@ -353,5 +358,50 @@ func TestPasskeysAccountRecoveryAndMFA(t *testing.T) {
 			opts := passkeyOptions(t, c.call("POST", "/auth/passkeys/begin", map[string]any{}))
 			passkeyStatus(t, c.call("POST", "/auth/passkeys/finish", key.response(t, opts["challenge"].(string), a.Config.AppURL, "test.example", false, true, 1)), 401)
 		})
+	}
+}
+
+func TestPasskeysReminderPersistenceAndValidation(t *testing.T) {
+	a, user := invitationSecurityFixture(t)
+	for _, days := range []int{3, 4, 5, 6, 7} {
+		var before, after time.Time
+		if err := a.DB.QueryRow(context.Background(), `SELECT clock_timestamp()`).Scan(&before); err != nil {
+			t.Fatal(err)
+		}
+		response := deleteWorkRequest(t, a, user, "POST", "/me/passkeys/reminder", map[string]any{"days": days}, true)
+		me := invitationSecurityOK(t, response)
+		until, err := time.Parse(time.RFC3339Nano, me["user"].(map[string]any)["passkey_remind_after"].(string))
+		if clockErr := a.DB.QueryRow(context.Background(), `SELECT clock_timestamp()`).Scan(&after); clockErr != nil {
+			t.Fatal(clockErr)
+		}
+		if err != nil || until.Before(before.Add(time.Duration(days)*24*time.Hour)) || until.After(after.Add(time.Duration(days)*24*time.Hour)) {
+			t.Fatalf("incorrect reminder date: %s %v", until, err)
+		}
+		// A new authenticated session (another device) receives the persisted value.
+		reloaded := invitationSecurityOK(t, deleteWorkRequest(t, a, user, "GET", "/me", nil, true))
+		if reloaded["user"].(map[string]any)["passkey_remind_after"] != me["user"].(map[string]any)["passkey_remind_after"] {
+			t.Fatal("reminder not persisted across sessions")
+		}
+	}
+	for _, days := range []any{0, 2, 8, -1, 3.5, "3"} {
+		w := deleteWorkRequest(t, a, user, "POST", "/me/passkeys/reminder", map[string]any{"days": days}, true)
+		if w.Code != 422 {
+			t.Fatalf("invalid days %v: %d", days, w.Code)
+		}
+	}
+	for _, tc := range []struct {
+		user   User
+		csrf   bool
+		status int
+	}{{user, false, 403}, {User{}, true, 401}} {
+		w := deleteWorkRequest(t, a, tc.user, "POST", "/me/passkeys/reminder", map[string]any{"days": 3}, tc.csrf)
+		if w.Code != tc.status {
+			t.Fatalf("authorization: %d", w.Code)
+		}
+	}
+	other := farmWorker(t, a, "reminder-other")
+	otherMe := invitationSecurityOK(t, deleteWorkRequest(t, a, other, "GET", "/me", nil, true))
+	if otherMe["user"].(map[string]any)["passkey_remind_after"] != nil {
+		t.Fatal("reminder leaked to another account")
 	}
 }

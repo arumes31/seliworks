@@ -43,11 +43,31 @@ func (a *App) webAuthn() (*webauthn.WebAuthn, error) {
 
 func (a *App) registerPasskeys(m *http.ServeMux) {
 	m.HandleFunc("GET /api/v1/me/passkeys", a.requireAuth(a.listPasskeys))
+	m.HandleFunc("POST /api/v1/me/passkeys/reminder", a.requireAuth(a.snoozePasskeyReminder))
 	m.HandleFunc("POST /api/v1/me/passkeys/register/begin", a.requireAuth(a.beginPasskeyRegistration))
 	m.HandleFunc("POST /api/v1/me/passkeys/register/finish", a.requireAuth(a.finishPasskeyRegistration))
 	m.HandleFunc("DELETE /api/v1/me/passkeys/{id}", a.requireAuth(a.deletePasskey))
 	m.HandleFunc("POST /api/v1/auth/passkeys/begin", a.beginPasskeyLogin)
 	m.HandleFunc("POST /api/v1/auth/passkeys/finish", a.finishPasskeyLogin)
+}
+
+func (a *App) snoozePasskeyReminder(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Days int `json:"days"`
+	}
+	if err := decode(r, &in); err != nil {
+		handleError(w, r, err)
+		return
+	}
+	if in.Days < 3 || in.Days > 7 {
+		fail(w, r, 422, "VALIDATION", "Choose a reminder interval from 3 to 7 days")
+		return
+	}
+	if _, err := a.DB.Exec(r.Context(), `UPDATE users SET passkey_remind_after=clock_timestamp()+$2::int*interval '24 hours' WHERE id=$1`, actor(r).ID, in.Days); err != nil {
+		handleError(w, r, err)
+		return
+	}
+	a.me(w, r)
 }
 
 // All credential mutations and logins take the user lock first, serializing
@@ -259,6 +279,9 @@ func (a *App) finishPasskeyRegistration(w http.ResponseWriter, r *http.Request) 
 	var id string
 	if err == nil {
 		err = tx.QueryRow(r.Context(), `INSERT INTO passkeys(user_id,credential_id,credential,name) VALUES($1,$2,$3,$4) RETURNING id::text`, u.ID, credential.ID, mustJSON(credential), name).Scan(&id)
+	}
+	if err == nil {
+		_, err = tx.Exec(r.Context(), `UPDATE users SET passkey_remind_after=NULL WHERE id=$1`, u.ID)
 	}
 	if err == nil {
 		err = a.audit(r.Context(), tx, u.ID, "auth.passkey_added", id, nil, map[string]any{"name": name})

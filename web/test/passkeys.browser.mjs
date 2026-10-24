@@ -301,3 +301,163 @@ for (const count of [0, 3]) {
     }
   });
 }
+
+for (const [width, days] of [
+  [390, 3],
+  [1280, 7],
+]) {
+  test(`passkey reminder persists, expires and reports save errors (${days} days)`, async () => {
+    const context = await browser.newContext({
+      viewport: { width, height: 900 },
+      serviceWorkers: "block",
+    });
+    try {
+      const page = await context.newPage();
+      let until = null;
+      let failSave = true;
+      const writes = [];
+      await page.route("**/api/v1/**", async (route) => {
+        const path = new URL(route.request().url()).pathname;
+        const currentAuth = () => ({
+          ...auth,
+          user: { ...auth.user, passkey_remind_after: until },
+        });
+        if (path.endsWith("/me/passkeys/reminder")) {
+          const data = route.request().postDataJSON();
+          writes.push(data);
+          assert.equal(route.request().headers()["x-csrf-token"], "test");
+          if (failSave)
+            return route.fulfill({
+              status: 503,
+              json: { error: { code: "UNAVAILABLE", message: "Try again" } },
+            });
+          until = new Date(Date.now() + data.days * 86400000).toISOString();
+          return route.fulfill({ json: currentAuth() });
+        }
+        return route.fulfill({
+          json: path.endsWith("/me") ? currentAuth() : { items: [], total: 0 },
+        });
+      });
+      await page.goto(origin + "/#history");
+      const prompt = page.locator('aside[aria-label="Passkeys"]');
+      await prompt.waitFor();
+      const select = prompt.getByLabel("Erneut erinnern in", { exact: true });
+      assert.deepEqual(
+        await select
+          .locator("option")
+          .evaluateAll((nodes) => nodes.map((node) => node.value)),
+        ["3", "4", "5", "6", "7"],
+      );
+      await select.selectOption(String(days));
+      await prompt
+        .getByRole("button", { name: "Später erinnern", exact: true })
+        .click();
+      await prompt.getByRole("alert").waitFor();
+      assert.equal(await prompt.isVisible(), true);
+      failSave = false;
+      await prompt
+        .getByRole("button", { name: "Später erinnern", exact: true })
+        .click();
+      await prompt.waitFor({ state: "detached" });
+      assert.deepEqual(writes, [{ days }, { days }]);
+      await page.reload();
+      await page
+        .getByRole("heading", { name: "Verlauf", exact: true })
+        .waitFor();
+      assert.equal(await prompt.count(), 0);
+      until = new Date(Date.now() - 1000).toISOString();
+      await page.reload();
+      await prompt.waitFor();
+      assert.equal(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth > innerWidth,
+        ),
+        false,
+      );
+      await prompt
+        .getByRole("button", { name: "Passkey einrichten", exact: true })
+        .click();
+      await page
+        .getByRole("heading", { name: "Passkeys", exact: true })
+        .waitFor();
+    } finally {
+      await context.close();
+    }
+  });
+}
+
+test("a delayed reminder response cannot restore a signed-out user", async () => {
+  const context = await browser.newContext({ serviceWorkers: "block" });
+  try {
+    const page = await context.newPage();
+    let loggedIn = true;
+    let release;
+    const delayed = new Promise((resolve) => {
+      release = resolve;
+    });
+    let received;
+    const started = new Promise((resolve) => {
+      received = resolve;
+    });
+    await page.route("**/api/v1/**", async (route) => {
+      const path = new URL(route.request().url()).pathname;
+      if (path.endsWith("/me/passkeys/reminder")) {
+        received();
+        await delayed;
+        return route.fulfill({
+          json: {
+            ...auth,
+            user: {
+              ...auth.user,
+              passkey_remind_after: new Date(
+                Date.now() + 3 * 86400000,
+              ).toISOString(),
+            },
+          },
+        });
+      }
+      if (path.endsWith("/auth/logout")) {
+        loggedIn = false;
+        return route.fulfill({ json: { ok: true } });
+      }
+      if (path.endsWith("/me"))
+        return route.fulfill(
+          loggedIn
+            ? { json: auth }
+            : { status: 401, json: { error: { code: "UNAUTHENTICATED" } } },
+        );
+      return route.fulfill({ json: { items: [], total: 0 } });
+    });
+    await page.goto(origin + "/#history");
+    await page
+      .getByRole("button", { name: "Später erinnern", exact: true })
+      .click();
+    await started;
+    await page.evaluate(() => {
+      location.hash = "profile";
+    });
+    await page.getByRole("button", { name: "Abmelden", exact: true }).click();
+    await page.getByRole("button", { name: "Anmelden", exact: true }).waitFor();
+    const responded = page.waitForResponse((response) =>
+      response.url().endsWith("/me/passkeys/reminder"),
+    );
+    release();
+    await responded;
+    // Allow the resolved fetch and React state update to run.
+    await page.waitForTimeout(100);
+    assert.equal(
+      await page
+        .getByRole("button", { name: "Anmelden", exact: true })
+        .isVisible(),
+      true,
+    );
+    assert.equal(
+      await page
+        .getByRole("heading", { name: "Passkeys", exact: true })
+        .count(),
+      0,
+    );
+  } finally {
+    await context.close();
+  }
+});
