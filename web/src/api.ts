@@ -110,6 +110,10 @@ export class APIError extends Error {
   }
 }
 let csrf = "";
+let pendingWrites = 0;
+export function hasPendingWrites() {
+  return pendingWrites > 0;
+}
 export function setCSRF(value: string) {
   csrf = value;
 }
@@ -119,8 +123,10 @@ export async function api<T>(
   body?: unknown,
   key?: string,
 ): Promise<T> {
+  const payload = body === undefined ? undefined : JSON.stringify(body);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 20000);
+  if (method !== "GET") pendingWrites++;
   try {
     const response = await fetch("/api/v1" + path, {
       method,
@@ -133,11 +139,24 @@ export async function api<T>(
         ...(method !== "GET" ? { "X-CSRF-Token": csrf } : {}),
         ...(key ? { "Idempotency-Key": key } : {}),
       },
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: payload,
     });
-    const value = (await response.json().catch(() => null)) as {
+    let value: {
       error?: { message?: string; code?: string };
-    } | null;
+    } | null = null;
+    if (response.status !== 204) {
+      try {
+        value = await response.json();
+      } catch (error) {
+        if (!(error instanceof SyntaxError)) throw error;
+        if (response.ok)
+          throw new APIError(
+            response.status,
+            "The server returned an unreadable response. Refresh the view before trying again.",
+            "INVALID_RESPONSE",
+          );
+      }
+    }
     if (!response.ok)
       throw new APIError(
         response.status,
@@ -145,7 +164,21 @@ export async function api<T>(
         value?.error?.code ?? "http_error",
       );
     return value as T;
+  } catch (error) {
+    if (
+      error instanceof TypeError ||
+      (error instanceof Error && error.name === "AbortError")
+    )
+      throw new APIError(
+        0,
+        method === "GET"
+          ? "Data could not be loaded. Check your connection and refresh the view."
+          : "The connection was interrupted or timed out. Success is unconfirmed; check the current state before trying again.",
+        method === "GET" ? "NETWORK_READ" : "NETWORK_WRITE",
+      );
+    throw error;
   } finally {
+    if (method !== "GET") pendingWrites--;
     clearTimeout(timeout);
   }
 }
@@ -157,12 +190,6 @@ export function errorText(
 ) {
   if (error instanceof APIError)
     return localizedAPIError(error.code, error.message, language);
-  if (
-    language === "de" &&
-    error instanceof Error &&
-    (error.name === "AbortError" || error instanceof TypeError)
-  )
-    return "Die Verbindung wurde unterbrochen oder der Vorgang dauert zu lange. Der Erfolg ist nicht bestätigt; gleiche den Zustand vor einem erneuten Versuch ab.";
   return error instanceof Error ? error.message : String(error);
 }
 // Currency values remain decimal strings; grouping and currency placement never coerce them to binary floats.

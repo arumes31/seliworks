@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   invitation-security:
-    name: Invitation revocation regressions
+    name: PostgreSQL regressions
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     services:
@@ -40,7 +40,7 @@ jobs:
           go-version-file: go.mod
           cache: true
       - name: Verify account-security revocation with PostgreSQL and race detection
-        run: go test -tags integration -race ./internal/app -run '^TestInvitationSecurity' -count=1 -v
+        run: go test -tags integration -race ./internal/app -run '^Test(InvitationSecurity|GermanActivitiesMigration)' -count=1 -v
   source:
     name: Source build and static checks
     runs-on: ubuntu-24.04
@@ -70,11 +70,13 @@ jobs:
           npm run typecheck
           npx --no-install prettier --check src index.html vite.config.ts tsconfig.json
           npm run build
-      - name: Verify onboarding edits in Chromium
+      - name: Verify onboarding and connection recovery
         working-directory: web
         run: |
           npx --no-install playwright install --with-deps chromium
           node --test test/invitations-security.browser.mjs
+          node --test test/connection.test.mjs test/connection.browser.mjs
+          node --test test/updates.browser.mjs
       - name: Build Go application
         run: go build -trimpath -o /tmp/seliworks ./cmd/seliworks
       - name: Validate production and development Compose

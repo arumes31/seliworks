@@ -124,7 +124,7 @@ func (a *App) Demo(ctx context.Context) error {
 	if _, e = tx.Exec(ctx, `INSERT INTO worker_farms VALUES($1,$3),($1,$4),($2,$3),($2,$4)`, admin, worker, farm, other); e != nil {
 		return e
 	}
-	if e = tx.QueryRow(ctx, `SELECT id::text FROM activities WHERE name='Field work'`).Scan(&activity); e != nil {
+	if e = tx.QueryRow(ctx, `SELECT id::text FROM activities WHERE name='Feldarbeit'`).Scan(&activity); e != nil {
 		return e
 	}
 	if _, e = tx.Exec(ctx, `INSERT INTO rates(hourly_rate,effective_from) VALUES(32.50,'2020-01-01T00:00:00Z'); UPDATE organization SET name='SeliWorks · Demo',address='Bergstraße 4, 5020 Salzburg',email='hello@seliworks.example',bank_details='DEMO — configure your bank account',tax_confirmed=false`); e != nil {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   Activity,
@@ -41,6 +41,7 @@ import { Settings } from "./Settings";
 import { Invoices, Rates, Reports } from "./Billing";
 
 import { Brand, ErrorNotice, Loading } from "./ui";
+import { useAppUpdates } from "./app-updates";
 
 const adminNav = [
   ["overview", LayoutDashboard],
@@ -79,9 +80,10 @@ export default function App() {
   const [activities, setActivities] = useState<Entity[]>([]);
   const [workers, setWorkers] = useState<Entity[]>([]);
   const [loadError, setLoadError] = useState<unknown>();
+  const [preferenceError, setPreferenceError] = useState<unknown>();
+  const entityGeneration = useRef(0);
   const [install, setInstall] = useState<InstallPrompt>();
-  const [registration, setRegistration] = useState<ServiceWorkerRegistration>();
-  const [update, setUpdate] = useState(false);
+  const update = useAppUpdates();
 
   const t = (key: Key): string => (lang === "de" ? de : en)[key];
   const locale = lang === "de" ? "de-AT" : "en-GB";
@@ -122,6 +124,7 @@ export default function App() {
 
   const loadEntities = useCallback(async () => {
     if (!auth) return;
+    const generation = ++entityGeneration.current;
     try {
       const values = await Promise.all([
         api<List<Entity>>("/farms"),
@@ -130,17 +133,36 @@ export default function App() {
           ? api<List<Entity>>("/admin/workers")
           : Promise.resolve({ items: [], total: 0 }),
       ]);
+      if (generation !== entityGeneration.current) return;
       setFarms(values[0].items);
       setActivities(values[1].items);
       setWorkers(values[2].items);
       setLoadError(undefined);
     } catch (err) {
-      setLoadError(err);
+      if (generation === entityGeneration.current) setLoadError(err);
     }
   }, [auth]);
 
   useEffect(() => {
     void loadEntities();
+    return () => {
+      entityGeneration.current++;
+    };
+  }, [loadEntities]);
+
+  useEffect(() => {
+    const recover = () => {
+      // Refresh even when the interrupted request has not rejected yet.
+      if (!document.hidden) void loadEntities();
+    };
+    window.addEventListener("online", recover);
+    window.addEventListener("focus", recover);
+    document.addEventListener("visibilitychange", recover);
+    return () => {
+      window.removeEventListener("online", recover);
+      window.removeEventListener("focus", recover);
+      document.removeEventListener("visibilitychange", recover);
+    };
   }, [loadEntities]);
 
   useEffect(() => {
@@ -176,27 +198,6 @@ export default function App() {
       setInstall(event as InstallPrompt);
     };
     window.addEventListener("beforeinstallprompt", installHandler);
-    if ("serviceWorker" in navigator) {
-      void navigator.serviceWorker
-        .register("/sw.js")
-        .then((reg) => {
-          setRegistration(reg);
-          if (reg.waiting) setUpdate(true);
-          reg.addEventListener("updatefound", () => {
-            const worker = reg.installing;
-            worker?.addEventListener("statechange", () => {
-              if (
-                worker.state === "installed" &&
-                navigator.serviceWorker.controller
-              )
-                setUpdate(true);
-            });
-          });
-        })
-        .catch(() => {
-          /* Installation remains optional; all work requires the server. */
-        });
-    }
     return () =>
       window.removeEventListener("beforeinstallprompt", installHandler);
   }, []);
@@ -226,6 +227,8 @@ export default function App() {
       }
     }
     setAuth(null);
+    setLoadError(undefined);
+    setPreferenceError(undefined);
     setFarms([]);
     setActivities([]);
     setWorkers([]);
@@ -449,6 +452,7 @@ export default function App() {
                   className="language-button"
                   onClick={() => {
                     const language = lang === "en" ? "de" : "en";
+                    setPreferenceError(undefined);
                     void api<User | { user: User }>("/me", "PATCH", {
                       language,
                       theme: auth.user.theme,
@@ -456,7 +460,7 @@ export default function App() {
                       .then((result) =>
                         updateUser("user" in result ? result.user : result),
                       )
-                      .catch(setLoadError);
+                      .catch(setPreferenceError);
                   }}
                 >
                   {lang.toUpperCase()}
@@ -474,30 +478,6 @@ export default function App() {
               {update && (
                 <div className="notice update-notice">
                   <span>{t("installReady")}</span>
-                  <button
-                    className="button secondary"
-                    onClick={() => {
-                      const waiting = registration?.waiting;
-                      if (!waiting) return;
-                      if (
-                        document.querySelector('form[data-dirty="true"]') &&
-                        !window.confirm(t("unsavedUpdate"))
-                      )
-                        return;
-                      document.documentElement.dataset.allowReload = "true";
-                      const reload = () => window.location.reload();
-                      navigator.serviceWorker.addEventListener(
-                        "controllerchange",
-                        reload,
-                        { once: true },
-                      );
-                      waiting.postMessage({
-                        type: "SKIP_WAITING",
-                      });
-                    }}
-                  >
-                    {t("update")}
-                  </button>
                 </div>
               )}
               {loadError !== undefined && (
@@ -506,6 +486,19 @@ export default function App() {
                   retry={() => void loadEntities()}
                 />
               )}{" "}
+              {preferenceError !== undefined && (
+                <ErrorNotice
+                  error={preferenceError}
+                  retry={() => {
+                    void api<Auth>("/me")
+                      .then((value) => {
+                        acceptAuth(value);
+                        setPreferenceError(undefined);
+                      })
+                      .catch(setPreferenceError);
+                  }}
+                />
+              )}
               {content}
             </main>
           </div>

@@ -1,4 +1,10 @@
 const de: Record<string, string> = {
+  NETWORK_READ:
+    "Die Daten konnten nicht geladen werden. Prüfe deine Verbindung und aktualisiere die Ansicht.",
+  NETWORK_WRITE:
+    "Die Verbindung wurde unterbrochen oder der Vorgang dauert zu lange. Der Erfolg ist nicht bestätigt; gleiche den Zustand vor einem erneuten Versuch ab.",
+  INVALID_RESPONSE:
+    "Der Server hat eine unlesbare Antwort geliefert. Aktualisiere die Ansicht und prüfe den Zustand vor einem erneuten Versuch.",
   AMBIGUOUS_LOCAL_TIME:
     "Diese Ortszeit kommt zweimal vor. Wähle ausdrücklich den UTC-Offset.",
   NONEXISTENT_LOCAL_TIME:
