@@ -51,6 +51,9 @@ export interface Entity {
   is_admin?: boolean;
   is_worker?: boolean;
   farm_ids?: string[];
+  assignment_revision?: string;
+  assign_all_workers?: boolean;
+  worker_ids?: string[];
 }
 export interface Break {
   started_at: string;

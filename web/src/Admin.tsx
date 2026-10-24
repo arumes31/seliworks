@@ -639,10 +639,12 @@ function Corrections({
 export function Management({
   kind,
   farms,
+  workers,
   onChanged,
 }: {
   kind: "workers" | "farms" | "activities";
   farms: Entity[];
+  workers: Entity[];
   onChanged: () => void;
 }) {
   const { t } = useI18n();
@@ -722,7 +724,7 @@ export function Management({
                             {t("invite")}
                           </button>
                         )}
-                        {kind === "workers" && (
+                        {kind === "workers" && entity.is_worker && (
                           <button
                             className="text-button"
                             onClick={() => setAssigning(entity)}
@@ -761,7 +763,12 @@ export function Management({
               const body: Record<string, unknown> = { name: form.get("name") };
               if (kind !== "activities") {
                 body.email = form.get("email");
-                if (kind === "farms") body.address = form.get("address");
+                if (kind === "farms") {
+                  body.address = form.get("address");
+                  body.assign_all_workers =
+                    form.get("assignment_mode") === "all";
+                  body.worker_ids = form.getAll("worker_ids");
+                }
               }
               if (editing) {
                 body.version = editing.version;
@@ -814,6 +821,9 @@ export function Management({
                   </Field>
                 )}
               </>
+            )}
+            {kind === "farms" && (
+              <FarmAssignments workers={workers} farm={editing} />
             )}
             {kind === "workers" && (
               <>
@@ -907,8 +917,10 @@ export function Management({
             onSubmit={async (form) => {
               await api(`/admin/workers/${assigning.id}/farms`, "PUT", {
                 farm_ids: form.getAll("farm_ids"),
+                expected_assignment_revision: assigning.assignment_revision,
               });
               setAssigning(undefined);
+              await result.refresh();
               onChanged();
             }}
           >
@@ -918,14 +930,82 @@ export function Management({
                   type="checkbox"
                   name="farm_ids"
                   value={farm.id}
-                  defaultChecked={assigning.farm_ids?.includes(farm.id)}
+                  defaultChecked={
+                    farm.assign_all_workers ||
+                    assigning.farm_ids?.includes(farm.id)
+                  }
+                  disabled={farm.assign_all_workers}
                 />
                 {farm.name}
+                {farm.assign_all_workers && (
+                  <span className="muted small">
+                    {" "}
+                    · {t("allWorkersAssignment")}
+                  </span>
+                )}
               </label>
             ))}
           </ActionForm>
         </Modal>
       )}
     </>
+  );
+}
+
+function FarmAssignments({
+  workers,
+  farm,
+}: {
+  workers: Entity[];
+  farm: Entity | null;
+}) {
+  const { t } = useI18n();
+  const [all, setAll] = useState(farm?.assign_all_workers ?? true);
+  return (
+    <fieldset>
+      <legend>{t("workerAssignment")}</legend>
+      <label className="check">
+        <input
+          type="radio"
+          name="assignment_mode"
+          value="all"
+          checked={all}
+          onChange={() => setAll(true)}
+        />
+        {t("allWorkersAssignment")}
+      </label>
+      <label className="check">
+        <input
+          type="radio"
+          name="assignment_mode"
+          value="selected"
+          checked={!all}
+          onChange={() => setAll(false)}
+        />
+        {t("selectedWorkersAssignment")}
+      </label>
+      <p className="muted small">
+        {t(all ? "allWorkersAssignmentHint" : "selectedWorkersAssignmentHint")}
+      </p>
+      <div hidden={all}>
+        {workers
+          .filter((worker) => worker.is_worker)
+          .map((worker) => (
+            <label className="check" key={worker.id}>
+              <input
+                type="checkbox"
+                name="worker_ids"
+                value={worker.id}
+                disabled={all}
+                defaultChecked={farm?.worker_ids?.includes(worker.id)}
+              />
+              {worker.name}
+              {!worker.active && (
+                <span className="muted small"> · {t("inactive")}</span>
+              )}
+            </label>
+          ))}
+      </div>
+    </fieldset>
   );
 }

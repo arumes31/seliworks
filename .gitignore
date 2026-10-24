@@ -18,11 +18,13 @@ backups/
 !internal/app/activities_migration_test.go
 !internal/app/delete_work_test.go
 !internal/app/passkeys_test.go
+!internal/app/farm_assignments_test.go
 *.test.*
 *.spec.*
 web/test/*
 !web/test/delete-work.browser.mjs
 !web/test/passkeys.browser.mjs
+!web/test/farm-assignments.browser.mjs
 !web/test/passkeys-live.browser.mjs
 !web/test/invitations-security.browser.mjs
 !web/test/connection.browser.mjs

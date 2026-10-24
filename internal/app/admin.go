@@ -40,7 +40,7 @@ func (a *App) registerAdmin(m *http.ServeMux) {
 	m.HandleFunc("PATCH /api/v1/admin/special-day-pricing/{day_type}", a.requireAdmin(a.saveDayPricing))
 }
 func (a *App) workers(w http.ResponseWriter, r *http.Request) {
-	items, e := queryItems(r.Context(), a.DB, `SELECT jsonb_build_object('id',u.id,'name',u.name,'email',u.email,'is_admin',u.is_admin,'is_worker',u.is_worker,'active',u.active,'language',u.language,'theme',u.theme,'version',u.version,'farm_ids',coalesce((SELECT jsonb_agg(farm_id) FROM worker_farms WHERE worker_id=u.id),'[]'::jsonb),'running',EXISTS(SELECT 1 FROM work_sessions WHERE worker_id=u.id AND stopped_at IS NULL)) FROM users u ORDER BY name`)
+	items, e := queryItems(r.Context(), a.DB, `SELECT jsonb_build_object('id',u.id,'name',u.name,'email',u.email,'is_admin',u.is_admin,'is_worker',u.is_worker,'active',u.active,'language',u.language,'theme',u.theme,'version',u.version,'assignment_revision',`+workerAssignmentRevision+`,'farm_ids',coalesce((SELECT jsonb_agg(f.id ORDER BY f.id) FROM farms f WHERE u.is_worker AND (f.assign_all_workers OR EXISTS(SELECT 1 FROM worker_farms wf WHERE wf.farm_id=f.id AND wf.worker_id=u.id))),'[]'::jsonb),'running',EXISTS(SELECT 1 FROM work_sessions WHERE worker_id=u.id AND stopped_at IS NULL)) FROM users u ORDER BY name`)
 	if e != nil {
 		handleError(w, r, e)
 		return
@@ -185,14 +185,15 @@ func (a *App) updateWorker(w http.ResponseWriter, r *http.Request) {
 }
 func (a *App) assignFarms(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		FarmIDs []string `json:"farm_ids"`
+		FarmIDs                    []string `json:"farm_ids"`
+		ExpectedAssignmentRevision *string  `json:"expected_assignment_revision"`
 	}
 	if e := decode(r, &in); e != nil {
 		handleError(w, r, e)
 		return
 	}
-	if len(in.FarmIDs) > 1000 {
-		fail(w, r, 422, "VALIDATION", "Too many assignments")
+	if e := validateAssignmentIDs(in.FarmIDs); e != nil {
+		handleError(w, r, e)
 		return
 	}
 	tx, e := a.DB.Begin(r.Context())
@@ -202,15 +203,33 @@ func (a *App) assignFarms(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback(r.Context())
 	var id string
-	e = tx.QueryRow(r.Context(), `SELECT id::text FROM users WHERE id=$1 FOR UPDATE`, r.PathValue("id")).Scan(&id)
+	e = lockFarmAssignments(r.Context(), tx)
+	if e == nil {
+		e = tx.QueryRow(r.Context(), `SELECT id::text FROM users WHERE id=$1 AND is_worker FOR UPDATE`, r.PathValue("id")).Scan(&id)
+	}
+	if e == nil && in.ExpectedAssignmentRevision != nil {
+		var revision string
+		e = tx.QueryRow(r.Context(), `SELECT `+workerAssignmentRevision+` FROM users u WHERE u.id=$1`, id).Scan(&revision)
+		if e == nil && revision != *in.ExpectedAssignmentRevision {
+			e = versionConflict()
+		}
+	}
+	if e == nil {
+		var count int
+		e = tx.QueryRow(r.Context(), `SELECT count(*) FROM farms WHERE id=ANY($1::uuid[])`, in.FarmIDs).Scan(&count)
+		if e == nil && count != len(in.FarmIDs) {
+			e = problem(422, "VALIDATION", "Choose existing farms")
+		}
+	}
+	if e == nil {
+		// Invalidate open farm editors only where explicit membership actually changes.
+		_, e = tx.Exec(r.Context(), `UPDATE farms f SET version=version+1 WHERE NOT f.assign_all_workers AND (EXISTS(SELECT 1 FROM worker_farms wf WHERE wf.farm_id=f.id AND wf.worker_id=$1) <> coalesce(f.id=ANY($2::uuid[]),false))`, id, in.FarmIDs)
+	}
 	if e == nil {
 		_, e = tx.Exec(r.Context(), `DELETE FROM worker_farms WHERE worker_id=$1`, id)
 	}
-	for _, fid := range in.FarmIDs {
-		if e != nil {
-			break
-		}
-		_, e = tx.Exec(r.Context(), `INSERT INTO worker_farms(worker_id,farm_id) VALUES($1,$2)`, id, fid)
+	if e == nil {
+		_, e = tx.Exec(r.Context(), `INSERT INTO worker_farms(worker_id,farm_id) SELECT $1,id FROM farms WHERE id=ANY($2::uuid[]) AND NOT assign_all_workers`, id, in.FarmIDs)
 	}
 	if e == nil {
 		e = a.audit(r.Context(), tx, actor(r).ID, "user.assignments", id, nil, in)
@@ -226,7 +245,11 @@ func (a *App) assignFarms(w http.ResponseWriter, r *http.Request) {
 }
 func (a *App) listBusiness(kind string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		items, e := queryItems(r.Context(), a.DB, `SELECT to_jsonb(v) FROM `+kind+` v ORDER BY name`)
+		projection := `to_jsonb(v)`
+		if kind == "farms" {
+			projection += `||jsonb_build_object('worker_ids',coalesce((SELECT jsonb_agg(worker_id ORDER BY worker_id) FROM worker_farms WHERE farm_id=v.id),'[]'::jsonb))`
+		}
+		items, e := queryItems(r.Context(), a.DB, `SELECT `+projection+` FROM `+kind+` v ORDER BY name`)
 		if e != nil {
 			handleError(w, r, e)
 			return
@@ -235,6 +258,9 @@ func (a *App) listBusiness(kind string) http.HandlerFunc {
 	}
 }
 func (a *App) saveBusiness(kind string, update bool) http.HandlerFunc {
+	if kind == "farms" {
+		return a.saveFarm(update)
+	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		var in struct {
 			Name    string `json:"name"`
@@ -266,16 +292,10 @@ func (a *App) saveBusiness(kind string, update bool) http.HandlerFunc {
 		if update {
 			sql := `UPDATE ` + kind + ` SET name=$2,active=$3,version=version+1 WHERE id=$1 AND version=$4 RETURNING to_jsonb(` + kind + `)`
 			args := []any{id, in.Name, active, in.Version}
-			if kind == "farms" {
-				sql = `UPDATE farms SET name=$2,active=$3,version=version+1,address=$5,email=$6 WHERE id=$1 AND version=$4 RETURNING to_jsonb(farms)`
-				args = append(args, in.Address, in.Email)
-			}
 			e = tx.QueryRow(r.Context(), sql, args...).Scan(&raw)
 			if e == pgx.ErrNoRows {
 				e = versionConflict()
 			}
-		} else if kind == "farms" {
-			e = tx.QueryRow(r.Context(), `INSERT INTO farms(name,address,email,active) VALUES($1,$2,$3,$4) RETURNING to_jsonb(farms)`, in.Name, in.Address, in.Email, active).Scan(&raw)
 		} else {
 			e = tx.QueryRow(r.Context(), `INSERT INTO activities(name,active) VALUES($1,$2) RETURNING to_jsonb(activities)`, in.Name, active).Scan(&raw)
 		}
