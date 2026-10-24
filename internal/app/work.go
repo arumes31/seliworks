@@ -15,7 +15,7 @@ const sessionSelect = `SELECT to_jsonb(s)||jsonb_build_object('worker_name',u.na
 
 func (a *App) session(ctx context.Context, q querier, id string) (map[string]any, error) {
 	var raw []byte
-	if e := q.QueryRow(ctx, sessionSelect+`WHERE s.id=$1`, id).Scan(&raw); e != nil {
+	if e := q.QueryRow(ctx, sessionSelect+`WHERE s.id=$1 AND s.state<>'DELETED'`, id).Scan(&raw); e != nil {
 		return nil, e
 	}
 	var v map[string]any
@@ -109,7 +109,7 @@ func (a *App) listSessions(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, 403, "FORBIDDEN", "Billing filters require administrator access")
 		return
 	}
-	where := ` WHERE ($1 OR s.worker_id=$2) AND ($3='' OR s.state=$3) AND ($4='' OR s.farm_id=NULLIF($4,'')::uuid) AND ($5='' OR s.worker_id=NULLIF($5,'')::uuid) AND ($6='' OR coalesce(s.effective_stop,'infinity')>(NULLIF($6,'')::date::timestamp AT TIME ZONE o.timezone)) AND ($7='' OR s.effective_start<(NULLIF($7,'')::date::timestamp AT TIME ZONE o.timezone)) AND ($8='' OR s.description ILIKE '%'||$8||'%' OR u.name ILIKE '%'||$8||'%' OR f.name ILIKE '%'||$8||'%')`
+	where := ` WHERE s.state<>'DELETED' AND ($1 OR s.worker_id=$2) AND ($3='' OR s.state=$3) AND ($4='' OR s.farm_id=NULLIF($4,'')::uuid) AND ($5='' OR s.worker_id=NULLIF($5,'')::uuid) AND ($6='' OR coalesce(s.effective_stop,'infinity')>(NULLIF($6,'')::date::timestamp AT TIME ZONE o.timezone)) AND ($7='' OR s.effective_start<(NULLIF($7,'')::date::timestamp AT TIME ZONE o.timezone)) AND ($8='' OR s.description ILIKE '%'||$8||'%' OR u.name ILIKE '%'||$8||'%' OR f.name ILIKE '%'||$8||'%')`
 	args := []any{u.IsAdmin, u.ID, q.Get("state"), q.Get("farm_id"), q.Get("worker_id"), q.Get("from"), q.Get("to"), q.Get("search")}
 	// Filter and sort before pagination; identifiers and clauses come only from this allow-list.
 	switch q.Get("billing") {
@@ -268,7 +268,7 @@ func (a *App) start(w http.ResponseWriter, r *http.Request) {
 			return nil, e
 		}
 		var anomaly bool
-		if e := tx.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM work_sessions WHERE worker_id=$1 AND effective_stop>$2)`, u.ID, now).Scan(&anomaly); e != nil {
+		if e := tx.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM work_sessions WHERE worker_id=$1 AND state<>'DELETED' AND effective_stop>$2)`, u.ID, now).Scan(&anomaly); e != nil {
 			return nil, e
 		}
 		if anomaly {
@@ -296,7 +296,7 @@ func (a *App) start(w http.ResponseWriter, r *http.Request) {
 func lockOwned(ctx context.Context, tx pgx.Tx, id string, u User) (string, int64, error) {
 	var owner, state string
 	var version int64
-	e := tx.QueryRow(ctx, `SELECT worker_id::text,state,version FROM work_sessions WHERE id=$1 FOR UPDATE`, id).Scan(&owner, &state, &version)
+	e := tx.QueryRow(ctx, `SELECT worker_id::text,state,version FROM work_sessions WHERE id=$1 AND state<>'DELETED' FOR UPDATE`, id).Scan(&owner, &state, &version)
 	if e != nil {
 		return "", 0, e
 	}

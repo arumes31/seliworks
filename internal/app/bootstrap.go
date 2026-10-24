@@ -53,6 +53,9 @@ func (a *App) Bootstrap(ctx context.Context, reset bool) error {
 			_, e = tx.Exec(ctx, `DELETE FROM user_totp WHERE user_id=$1`, id)
 		}
 		if e == nil {
+			_, e = tx.Exec(ctx, `DELETE FROM passkeys WHERE user_id=$1`, id)
+		}
+		if e == nil {
 			_, e = tx.Exec(ctx, `DELETE FROM recovery_codes WHERE user_id=$1`, id)
 		}
 	} else {

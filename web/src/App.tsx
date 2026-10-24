@@ -31,6 +31,7 @@ import { Setup } from "./Setup";
 
 import { History, Worker } from "./Worker";
 
+import { PasskeyPrompt } from "./Passkeys";
 import { Profile } from "./Profile";
 
 import type { InstallPrompt } from "./Profile";
@@ -497,6 +498,13 @@ export default function App() {
                       })
                       .catch(setPreferenceError);
                   }}
+                />
+              )}
+              {current !== "profile" && (
+                <PasskeyPrompt
+                  key={auth.user.id}
+                  auth={auth}
+                  onSetup={() => navigate("profile")}
                 />
               )}
               {content}

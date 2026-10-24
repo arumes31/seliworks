@@ -8,6 +8,7 @@ import type { Auth, User } from "./api";
 
 import { useI18n } from "./i18n";
 
+import { Passkeys } from "./Passkeys";
 import { TwoFactor } from "./TwoFactor";
 
 import { ActionForm, ErrorNotice, Field, PageHeader } from "./ui";
@@ -41,6 +42,7 @@ export function Profile({
         description={`${auth.user.name} · ${auth.user.email}`}
       />
       <div className="settings-grid">
+        <Passkeys auth={auth} onRefresh={onRefresh} />
         <section className="panel">
           <h2>{t("theme")}</h2>
           <ActionForm

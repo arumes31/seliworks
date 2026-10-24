@@ -11,6 +11,7 @@ export interface User {
   theme: "light" | "dark" | "system";
   version: number;
   totp_enabled?: boolean;
+  passkey_count?: number;
 }
 export interface Organization {
   name: string;

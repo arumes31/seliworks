@@ -31,6 +31,7 @@ jobs:
           --health-retries 15
     env:
       TEST_DATABASE_URL: postgres://postgres:isolated-regression-only@127.0.0.1:5432/seliworks_test?sslmode=disable
+      SELIWORKS_BROWSER_TEST: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -39,8 +40,19 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24.22.0'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Prepare real-browser authentication regression
+        working-directory: web
+        run: |
+          npm ci
+          npm run build
+          npx --no-install playwright install --with-deps chromium
       - name: Verify account-security revocation with PostgreSQL and race detection
-        run: go test -tags integration -race ./internal/app -run '^Test(InvitationSecurity|GermanActivitiesMigration)' -count=1 -v
+        run: go test -tags integration -race ./internal/app -run '^Test(InvitationSecurity|GermanActivitiesMigration|DeleteWork|Passkeys)' -count=1 -v
   source:
     name: Source build and static checks
     runs-on: ubuntu-24.04
@@ -77,6 +89,7 @@ jobs:
           node --test test/invitations-security.browser.mjs
           node --test test/connection.test.mjs test/connection.browser.mjs
           node --test test/updates.browser.mjs
+          node --test test/delete-work.browser.mjs test/passkeys.browser.mjs
       - name: Build Go application
         run: go build -trimpath -o /tmp/seliworks ./cmd/seliworks
       - name: Validate production and development Compose

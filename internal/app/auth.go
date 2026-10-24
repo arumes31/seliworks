@@ -16,16 +16,17 @@ import (
 )
 
 type User struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Email       string `json:"email"`
-	IsAdmin     bool   `json:"is_admin"`
-	IsWorker    bool   `json:"is_worker"`
-	Active      bool   `json:"active"`
-	Language    string `json:"language"`
-	Theme       string `json:"theme"`
-	Version     int64  `json:"version"`
-	TOTPEnabled bool   `json:"totp_enabled"`
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	Email        string `json:"email"`
+	IsAdmin      bool   `json:"is_admin"`
+	IsWorker     bool   `json:"is_worker"`
+	Active       bool   `json:"active"`
+	Language     string `json:"language"`
+	Theme        string `json:"theme"`
+	Version      int64  `json:"version"`
+	PasskeyCount int    `json:"passkey_count"`
+	TOTPEnabled  bool   `json:"totp_enabled"`
 }
 type authContext struct {
 	User            User
@@ -242,7 +243,7 @@ func (a *App) writeMe(w http.ResponseWriter, r *http.Request, v authContext) {
 }
 func (a *App) me(w http.ResponseWriter, r *http.Request) {
 	v := r.Context().Value(authKey{}).(authContext)
-	if e := a.DB.QueryRow(r.Context(), `SELECT coalesce((SELECT enabled FROM user_totp WHERE user_id=$1),false)`, v.User.ID).Scan(&v.User.TOTPEnabled); e != nil {
+	if e := a.DB.QueryRow(r.Context(), `SELECT coalesce((SELECT enabled FROM user_totp WHERE user_id=$1),false),(SELECT count(*) FROM passkeys WHERE user_id=$1)`, v.User.ID).Scan(&v.User.TOTPEnabled, &v.User.PasskeyCount); e != nil {
 		handleError(w, r, e)
 		return
 	}
