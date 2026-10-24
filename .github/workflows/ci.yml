@@ -92,6 +92,8 @@ jobs:
           node --test test/delete-work.browser.mjs test/passkeys.browser.mjs test/farm-assignments.browser.mjs
       - name: Build Go application
         run: go build -trimpath -o /tmp/seliworks ./cmd/seliworks
+      - name: Verify invoice PDF pagination
+        run: go test -race ./internal/app -run '^TestInvoicePDF' -count=1
       - name: Validate production and development Compose
         env:
           APP_URL: https://work.example.com
