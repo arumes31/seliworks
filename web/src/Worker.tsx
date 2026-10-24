@@ -56,7 +56,7 @@ export function Worker({
   activities: Entity[];
   farms: Entity[];
 }) {
-  const { t, hours, date } = useI18n();
+  const { t, hours, date, timezone } = useI18n();
   const online = useOnline();
   const [active, setActive] = useState<Work | null>();
   const [summary, setSummary] = useState<Summary>();
@@ -175,7 +175,7 @@ export function Worker({
       await synchronize();
     } catch (err) {
       setError(err);
-      if (err instanceof APIError && err.status < 500) {
+      if (err instanceof APIError && err.status >= 400 && err.status < 500) {
         setCommand(undefined);
         sessionStorage.removeItem("seliworks:" + user.id + ":pending-command");
       }
@@ -193,6 +193,7 @@ export function Worker({
         : (performance.now() - sample.current.monotonic) * 1000)
     : 0;
   void tick;
+  const now = new Date().toISOString();
   const isStale = !online || !!error;
 
   return (
@@ -228,6 +229,9 @@ export function Worker({
                 : t("ready")}
             </span>
             {active && <span className="live-dot" />}
+            <time className="timer-clock" dateTime={now} title={timezone}>
+              {date(now)}
+            </time>
           </div>
           {active === undefined ? (
             <Loading />

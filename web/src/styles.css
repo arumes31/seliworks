@@ -729,6 +729,7 @@ select {
 }
 .timer-top {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 9px;
   color: var(--muted);
@@ -737,13 +738,21 @@ select {
 }
 .timer-top > svg {
   color: var(--accent);
+  flex-shrink: 0;
+}
+.timer-clock {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .live-dot {
   height: 8px;
   width: 8px;
   border-radius: 50%;
   background: var(--green);
-  margin-left: auto;
+  flex-shrink: 0;
 }
 .timer {
   font-family: Manrope, sans-serif;

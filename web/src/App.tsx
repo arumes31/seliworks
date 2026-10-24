@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   Activity,
@@ -79,6 +79,7 @@ export default function App() {
   const [activities, setActivities] = useState<Entity[]>([]);
   const [workers, setWorkers] = useState<Entity[]>([]);
   const [loadError, setLoadError] = useState<unknown>();
+  const entityGeneration = useRef(0);
   const [install, setInstall] = useState<InstallPrompt>();
   const [registration, setRegistration] = useState<ServiceWorkerRegistration>();
   const [update, setUpdate] = useState(false);
@@ -122,6 +123,7 @@ export default function App() {
 
   const loadEntities = useCallback(async () => {
     if (!auth) return;
+    const generation = ++entityGeneration.current;
     try {
       const values = await Promise.all([
         api<List<Entity>>("/farms"),
@@ -130,18 +132,36 @@ export default function App() {
           ? api<List<Entity>>("/admin/workers")
           : Promise.resolve({ items: [], total: 0 }),
       ]);
+      if (generation !== entityGeneration.current) return;
       setFarms(values[0].items);
       setActivities(values[1].items);
       setWorkers(values[2].items);
       setLoadError(undefined);
     } catch (err) {
-      setLoadError(err);
+      if (generation === entityGeneration.current) setLoadError(err);
     }
   }, [auth]);
 
   useEffect(() => {
     void loadEntities();
+    return () => {
+      entityGeneration.current++;
+    };
   }, [loadEntities]);
+
+  useEffect(() => {
+    const recover = () => {
+      if (loadError !== undefined && !document.hidden) void loadEntities();
+    };
+    window.addEventListener("online", recover);
+    window.addEventListener("focus", recover);
+    document.addEventListener("visibilitychange", recover);
+    return () => {
+      window.removeEventListener("online", recover);
+      window.removeEventListener("focus", recover);
+      document.removeEventListener("visibilitychange", recover);
+    };
+  }, [loadEntities, loadError]);
 
   useEffect(() => {
     const handler = () => setRoute(initialRoute());
