@@ -51,6 +51,7 @@ export interface Entity {
   address?: string;
   is_admin?: boolean;
   is_worker?: boolean;
+  timesheet_eligible?: boolean;
   farm_ids?: string[];
   assignment_revision?: string;
   assign_all_workers?: boolean;

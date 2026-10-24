@@ -24,6 +24,7 @@ import {
 
 import { WorkDetails } from "./WorkDetails";
 import { LocalTimeField } from "./LocalTimeField";
+import { TimesheetExport } from "./TimesheetExport";
 
 interface OverviewData {
   today_us: number;
@@ -254,6 +255,7 @@ export function Entries({
         title={t("entries")}
         action={
           <div className="button-group">
+            <TimesheetExport workers={workers} />
             {checked.length > 0 && (
               <button
                 className="button secondary"

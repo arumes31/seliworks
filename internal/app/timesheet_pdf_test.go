@@ -80,3 +80,24 @@ func TestTimesheetPDFOversized(t *testing.T) {
 	}
 	writePaginationArtifact(t, "timesheet-oversized", raw)
 }
+
+func TestTimesheetPDFEmployeeSections(t *testing.T) {
+	first := timesheetDocument{Worker: "EMPLOYEEALPHA", Organization: "SeliWorks", From: "2026-10-01", To: "2026-10-14", Timezone: "Europe/Vienna", Language: "de"}
+	second, empty := first, first
+	second.Worker, empty.Worker = "EMPLOYEEBETA", "EMPLOYEEEMPTY"
+	first.Items = []timesheetEntry{{Farm: "ALPHAFARM", State: "SUBMITTED", Description: strings.Repeat("Lange Beschreibung\n", 70) + "ALPHAEND", NetUS: 3600000000}}
+	second.Items = []timesheetEntry{{Farm: "BETAFARM", State: "APPROVED", NetUS: 7200000000}}
+	raw, err := renderTimesheetPDFs([]timesheetDocument{first, second, empty}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pages := invoicePageStreams(t, raw)
+	if pdfMarkerPage(t, pages, "EMPLOYEEBETA") <= pdfMarkerPage(t, pages, "ALPHAEND") {
+		t.Fatal("second employee shares previous section")
+	}
+	if pdfMarkerPage(t, pages, "EMPLOYEEEMPTY") <= pdfMarkerPage(t, pages, "BETAFARM") {
+		t.Fatal("empty employee shares previous section")
+	}
+	pdfMarkerPage(t, pages, "Keine beendeten Arbeitseinträge in diesem Zeitraum.")
+	writePaginationArtifact(t, "employees", raw)
+}

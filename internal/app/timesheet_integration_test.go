@@ -13,7 +13,7 @@ func TestTimesheetAuthorizationAndClippedTotals(t *testing.T) {
 	a, owner := invitationSecurityFixture(t)
 	ctx := context.Background()
 	var other User
-	if err := a.DB.QueryRow(ctx, `INSERT INTO users(name,email,password_hash,is_admin) SELECT 'FOREIGNSECRET','other@example.test',password_hash,false FROM users WHERE id=$1 RETURNING id::text`, owner.ID).Scan(&other.ID); err != nil {
+	if err := a.DB.QueryRow(ctx, `INSERT INTO users(name,email,password_hash,is_admin) SELECT 'Other employee','other@example.test',password_hash,false FROM users WHERE id=$1 RETURNING id::text`, owner.ID).Scan(&other.ID); err != nil {
 		t.Fatal(err)
 	}
 	var farm string
@@ -44,6 +44,47 @@ func TestTimesheetAuthorizationAndClippedTotals(t *testing.T) {
 	insert(owner.ID, "2026-10-25T03:00:00Z", "2026-10-25T04:00:00Z", "DELETED", "DELETEDSECRET")
 	insert(owner.ID, "2026-10-24T12:00:00Z", "2026-10-24T13:00:00Z", "SUBMITTED", "OUTSIDERANGE")
 	insert(other.ID, "2026-10-25T01:00:00Z", "2026-10-25T02:00:00Z", "SUBMITTED", "FOREIGNSECRET")
+	adminPath := "/admin/timesheets.pdf?from=2026-10-25&to=2026-10-25&lang=de"
+	for _, query := range []string{"&all=true", "&worker_id=" + other.ID} {
+		w := deleteWorkRequest(t, a, owner, "GET", adminPath+query, nil, false)
+		if w.Code != 200 {
+			t.Fatalf("admin export: %d %s", w.Code, w.Body.String())
+		}
+		pages := invoicePageStreams(t, w.Body.Bytes())
+		foreignPage := pdfMarkerPage(t, pages, "FOREIGNSECRET")
+		if query == "&all=true" && pdfMarkerPage(t, pages, "OWNCLIPPED") == foreignPage {
+			t.Fatal("employees share a PDF page")
+		}
+	}
+	if w := deleteWorkRequest(t, a, other, "GET", adminPath+"&all=true", nil, false); w.Code != 403 {
+		t.Fatalf("worker admin export status %d", w.Code)
+	}
+	for _, query := range []string{"", "&all=false", "&all=true&all=true", "&all=true&worker_id=" + other.ID, "&worker_id=bad", "&worker_id=" + other.ID + "&worker_id=" + strings.ToUpper(other.ID), "&worker_id=00000000-0000-0000-0000-000000000000"} {
+		if w := deleteWorkRequest(t, a, owner, "GET", adminPath+query, nil, false); w.Code != 422 {
+			t.Fatalf("invalid selection %s returned %d", query, w.Code)
+		}
+	}
+	if w := deleteWorkRequest(t, a, User{}, "GET", adminPath+"&all=true", nil, false); w.Code != 401 {
+		t.Fatalf("anonymous export status %d", w.Code)
+	}
+	// Historical workers remain eligible after deactivation or role changes.
+	if _, err := a.DB.Exec(ctx, `UPDATE users SET is_worker=false,is_admin=true,active=false WHERE id=$1`, other.ID); err != nil {
+		t.Fatal(err)
+	}
+	w := deleteWorkRequest(t, a, owner, "GET", adminPath+"&worker_id="+other.ID, nil, false)
+	if w.Code != 200 {
+		t.Fatalf("historical worker: %d %s", w.Code, w.Body.String())
+	}
+	pdfMarkerPage(t, invoicePageStreams(t, w.Body.Bytes()), "FOREIGNSECRET")
+	var emptyID string
+	if err := a.DB.QueryRow(ctx, `INSERT INTO users(name,email,password_hash,is_worker,active) VALUES('EMPTYWORKER','empty@example.test','unused',true,false) RETURNING id::text`).Scan(&emptyID); err != nil {
+		t.Fatal(err)
+	}
+	w = deleteWorkRequest(t, a, owner, "GET", adminPath+"&worker_id="+emptyID, nil, false)
+	if w.Code != 200 {
+		t.Fatalf("empty worker: %d %s", w.Code, w.Body.String())
+	}
+	pdfMarkerPage(t, invoicePageStreams(t, w.Body.Bytes()), "Keine beendeten Arbeitseinträge in diesem Zeitraum.")
 	path := "/me/timesheet.pdf?from=2026-10-25&to=2026-10-25&lang=de"
 	for _, admin := range []bool{false, true} {
 		t.Run(fmt.Sprintf("admin=%v", admin), func(t *testing.T) {
@@ -96,5 +137,45 @@ func TestTimesheetAuthorizationAndClippedTotals(t *testing.T) {
 				t.Fatalf("%d %s", w.Code, w.Body.String())
 			}
 		})
+	}
+}
+
+func TestTimesheetAdminGlobalLimits(t *testing.T) {
+	a, admin := invitationSecurityFixture(t)
+	ctx := context.Background()
+	var other, farm string
+	if err := a.DB.QueryRow(ctx, `INSERT INTO users(name,email,password_hash,is_worker) VALUES('Limit worker','limit@example.test','unused',true) RETURNING id::text`).Scan(&other); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.DB.QueryRow(ctx, `INSERT INTO farms(name) VALUES('Limit farm') RETURNING id::text`).Scan(&farm); err != nil {
+		t.Fatal(err)
+	}
+	seed := func(count int, text string) {
+		t.Helper()
+		_, err := a.DB.Exec(ctx, `INSERT INTO work_sessions(worker_id,farm_id,started_at,stopped_at,effective_start,effective_stop,state,description,created_by,updated_at) SELECT u.id,$3,'2026-01-01'::timestamptz+i*interval '1 hour','2026-01-01'::timestamptz+i*interval '1 hour'+interval '30 minutes','2026-01-01'::timestamptz+i*interval '1 hour','2026-01-01'::timestamptz+i*interval '1 hour'+interval '30 minutes','STOPPED_PENDING_DETAILS',$5,$1,clock_timestamp() FROM users u CROSS JOIN generate_series(1,$4::int) i WHERE u.id=ANY(ARRAY[$1::uuid,$2::uuid])`, admin.ID, other, farm, count, text)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	path := "/admin/timesheets.pdf?from=2026-01-01&to=2026-12-31&worker_id=" + admin.ID + "&worker_id=" + other
+	seed(1001, "entry limit")
+	w := deleteWorkRequest(t, a, admin, "GET", path, nil, false)
+	if w.Code != 422 || !strings.Contains(w.Body.String(), "TIMESHEET_TOO_LARGE") {
+		t.Fatalf("global entries: %d %s", w.Code, w.Body.String())
+	}
+	if _, err := a.DB.Exec(ctx, `DELETE FROM work_sessions WHERE worker_id=ANY(ARRAY[$1::uuid,$2::uuid])`, admin.ID, other); err != nil {
+		t.Fatal(err)
+	}
+	seed(200, strings.Repeat("x", 3000))
+	w = deleteWorkRequest(t, a, admin, "GET", path, nil, false)
+	if w.Code != 422 || !strings.Contains(w.Body.String(), "TIMESHEET_TOO_LARGE") {
+		t.Fatalf("global text: %d %s", w.Code, w.Body.String())
+	}
+	if _, err := a.DB.Exec(ctx, `INSERT INTO users(name,email,password_hash,is_worker) SELECT 'Extra '||i,'extra'||i||'@example.test','unused',true FROM generate_series(1,100) i`); err != nil {
+		t.Fatal(err)
+	}
+	w = deleteWorkRequest(t, a, admin, "GET", "/admin/timesheets.pdf?from=2026-10-01&to=2026-10-01&all=true", nil, false)
+	if w.Code != 422 || !strings.Contains(w.Body.String(), "TIMESHEET_WORKERS") {
+		t.Fatalf("global workers: %d %s", w.Code, w.Body.String())
 	}
 }
