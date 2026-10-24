@@ -8,7 +8,7 @@ import (
 )
 
 func TestGermanActivitiesMigration(t *testing.T) {
-	a, _ := invitationSecurityFixture(t)
+	a, admin := invitationSecurityFixture(t)
 	ctx := context.Background()
 	var names []string
 	if err := a.DB.QueryRow(ctx, `SELECT array_agg(name ORDER BY name) FROM activities`).Scan(&names); err != nil {
@@ -31,6 +31,7 @@ func TestGermanActivitiesMigration(t *testing.T) {
 	if err := a.DB.QueryRow(ctx, `SELECT id::text FROM activities WHERE name='Field work'`).Scan(&id); err != nil {
 		t.Fatal(err)
 	}
+	custom := invitationSecurityOK(t, invitationSecurityCall(a, admin, a.saveBusiness("activities", false), "", map[string]any{"name": "Field work"}))
 	for range 2 {
 		if err := Migrate(ctx, a.DB); err != nil {
 			t.Fatal(err)
@@ -42,5 +43,11 @@ func TestGermanActivitiesMigration(t *testing.T) {
 	}
 	if !valid {
 		t.Fatal("migration changed customized data, identities, or reran")
+	}
+	if err := a.DB.QueryRow(ctx, `SELECT name='Field work' AND version=1 FROM activities WHERE id=$1`, custom["id"]).Scan(&valid); err != nil {
+		t.Fatal(err)
+	}
+	if !valid {
+		t.Fatal("migration renamed an administrator-created activity")
 	}
 }
