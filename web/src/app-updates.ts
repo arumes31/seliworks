@@ -17,7 +17,6 @@ export function useAppUpdates() {
         return;
       setPending(true);
       if (
-        !navigator.onLine ||
         hasPendingWrites() ||
         document.querySelector(
           'form[data-dirty="true"], form[data-busy="true"]',
@@ -25,6 +24,9 @@ export function useAppUpdates() {
       )
         return;
       if (reloadPending) {
+        // The downloaded worker can activate offline; the page needs the
+        // network to load the new app bundle, so defer only the reload.
+        if (!navigator.onLine) return;
         reloading = true;
         document.documentElement.dataset.allowReload = "true";
         window.location.reload();
@@ -49,7 +51,8 @@ export function useAppUpdates() {
       apply();
     };
     const check = () => {
-      if (!document.hidden) void registration?.update().catch(() => {});
+      if (!document.hidden && navigator.onLine && !registration?.waiting)
+        void registration?.update().catch(() => {});
       apply();
     };
     navigator.serviceWorker.addEventListener("controllerchange", changed);

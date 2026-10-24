@@ -128,8 +128,16 @@ for (const blocker of ["none", "dirty form", "pending write", "offline"]) {
             .getByRole("button", { name: "Schließen", exact: true })
             .click();
           if (blocker === "offline") {
+            await page.waitForFunction(async () => {
+              const reg = await navigator.serviceWorker.getRegistration();
+              return !reg?.waiting && reg?.active?.state === "activated";
+            });
             await page.waitForTimeout(1500);
-            assert.equal(navigations, 0, "no offline reload");
+            assert.equal(
+              navigations,
+              0,
+              "the worker activates without an offline page reload",
+            );
             await context.setOffline(false);
           }
         } else await write.fulfill({ json: auth.user });
