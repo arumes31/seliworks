@@ -136,12 +136,9 @@ for (const width of [390, 1280]) {
         .click();
       await dialog.waitFor({ state: "detached" });
       assert.deepEqual(writes, [{ version: 3, reason: "Doppelt erfasst" }]);
-      assert.equal(
-        await page
-          .getByRole("button", { name: "Details anzeigen", exact: true })
-          .count(),
-        0,
-      );
+      await page
+        .getByRole("button", { name: "Details anzeigen", exact: true })
+        .waitFor({ state: "detached" });
       assert.equal(
         await page.evaluate(
           () => document.documentElement.scrollWidth > innerWidth,

@@ -253,3 +253,51 @@ for (const width of [390, 1280]) {
     }
   });
 }
+for (const count of [0, 3]) {
+  test(`retention preview includes ${count} expired passkey requests`, async () => {
+    const context = await browser.newContext({ serviceWorkers: "block" });
+    try {
+      const page = await context.newPage();
+      await page.route("**/api/v1/**", (route) => {
+        const path = new URL(route.request().url()).pathname;
+        const value = path.endsWith("/me")
+          ? {
+              ...auth,
+              user: { ...auth.user, is_admin: true, passkey_count: 1 },
+            }
+          : path.endsWith("/retention")
+            ? {
+                version: 1,
+                security_retention_days: 30,
+                cutoff: "2026-01-01T00:00:00Z",
+                candidates: {
+                  auth_sessions: 0,
+                  invitations: 0,
+                  auth_limits: 0,
+                  passkey_ceremonies: count,
+                },
+              }
+            : path.endsWith("/settings")
+              ? { ...auth.organization, version: 1, tax_percent: "0" }
+              : { items: [], total: 0 };
+        return route.fulfill({ json: value });
+      });
+      await page.goto(origin + "/#settings");
+      const label = page.getByText("Abgelaufene Passkey-Anfragen", {
+        exact: true,
+      });
+      await label.waitFor();
+      assert.equal(
+        await label.locator("..").locator("dd").innerText(),
+        String(count),
+      );
+      const button = page.getByRole("button", {
+        name: "Abgelaufene Sicherheitsdaten bereinigen",
+        exact: true,
+      });
+      assert.equal(await button.isEnabled(), count > 0);
+    } finally {
+      await context.close();
+    }
+  });
+}

@@ -46,13 +46,14 @@ export const en = {
     "Complete business tables and audit evidence as JSON Lines, with exact numbers and UTC timestamps. Passwords, sign-in secrets and private PDF files are excluded. Download PDFs from Invoices; use operator backups for restoration.",
   securityCleanup: "Clean up expired security data",
   retentionHint:
-    "Only expired sign-in sessions, expired account links and old login counters are removed after the configured retention period. Active sessions, work records, financial history, audit evidence and command results are kept. Cleanup runs only when an administrator confirms it.",
+    "Only expired sign-in sessions, expired account links, expired passkey requests and old login counters are removed after the configured retention period. Active sessions, work records, financial history, audit evidence and command results are kept. Cleanup runs only when an administrator confirms it.",
   securityRetentionDays: "Keep expired security data for (days)",
   retentionNotes: "Business and financial retention policy notes",
   olderThan: "Eligible before",
   expiredSessions: "Expired sign-in sessions",
   expiredInvitations: "Expired account setup links",
   oldLoginCounters: "Old login counters",
+  expiredPasskeyCeremonies: "Expired passkey requests",
   refreshPreview: "Refresh preview",
   confirmSecurityCleanup:
     "I reviewed the preview and confirm removal of eligible expired security data.",
@@ -447,13 +448,14 @@ export const de: Record<Key, string> = {
     "Vollständige Geschäftstabellen und Prüfnachweise als JSON Lines mit exakten Zahlen und UTC-Zeitpunkten. Passwörter, Anmeldegeheimnisse und private PDF-Dateien sind ausgenommen. PDFs findest du unter Rechnungen; zur Wiederherstellung dienen die Betriebssicherungen.",
   securityCleanup: "Abgelaufene Sicherheitsdaten bereinigen",
   retentionHint:
-    "Nach der eingestellten Aufbewahrungsfrist werden ausschließlich abgelaufene Anmeldesitzungen, abgelaufene Kontolinks und alte Anmeldezähler entfernt. Aktive Sitzungen, Arbeitsnachweise, Finanzhistorie, Prüfnachweise und Befehlsresultate bleiben erhalten. Die Bereinigung erfolgt nur nach ausdrücklicher Admin-Bestätigung.",
+    "Nach der eingestellten Aufbewahrungsfrist werden ausschließlich abgelaufene Anmeldesitzungen, abgelaufene Kontolinks, abgelaufene Passkey-Anfragen und alte Anmeldezähler entfernt. Aktive Sitzungen, Arbeitsnachweise, Finanzhistorie, Prüfnachweise und Befehlsresultate bleiben erhalten. Die Bereinigung erfolgt nur nach ausdrücklicher Admin-Bestätigung.",
   securityRetentionDays: "Abgelaufene Sicherheitsdaten aufbewahren (Tage)",
   retentionNotes: "Aufbewahrungsrichtlinie für Geschäfts- und Finanzdaten",
   olderThan: "Berücksichtigt vor",
   expiredSessions: "Abgelaufene Anmeldesitzungen",
   expiredInvitations: "Abgelaufene Kontoeinrichtungslinks",
   oldLoginCounters: "Alte Anmeldezähler",
+  expiredPasskeyCeremonies: "Abgelaufene Passkey-Anfragen",
   refreshPreview: "Vorschau aktualisieren",
   confirmSecurityCleanup:
     "Ich habe die Vorschau geprüft und bestätige das Entfernen der berücksichtigten abgelaufenen Sicherheitsdaten.",
