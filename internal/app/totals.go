@@ -12,7 +12,7 @@ func (a *App) periodTotals(ctx context.Context, q querier, worker string, from, 
 	return a.filteredTotals(ctx, q, worker, "", from, to, now)
 }
 func (a *App) filteredTotals(ctx context.Context, q querier, worker, farm string, from, to, now time.Time) (timeTotals, error) {
-	rows, e := q.Query(ctx, `SELECT s.effective_start,coalesce(s.effective_stop,$4),s.additional_deduction_us,coalesce((SELECT jsonb_agg(jsonb_build_object('started_at',b.started_at,'stopped_at',b.stopped_at)) FROM work_break_intervals b WHERE b.session_id=s.id),'[]'::jsonb) FROM work_sessions s WHERE ($1='' OR s.worker_id=NULLIF($1,'')::uuid) AND s.effective_start<$3 AND coalesce(s.effective_stop,$4)>$2 AND($5='' OR s.farm_id=NULLIF($5,'')::uuid)`, worker, from, to, now, farm)
+	rows, e := q.Query(ctx, `SELECT s.effective_start,coalesce(s.effective_stop,$4),s.additional_deduction_us,coalesce((SELECT jsonb_agg(jsonb_build_object('started_at',b.started_at,'stopped_at',b.stopped_at)) FROM work_break_intervals b WHERE b.session_id=s.id),'[]'::jsonb) FROM work_sessions s WHERE s.state<>'DELETED' AND ($1='' OR s.worker_id=NULLIF($1,'')::uuid) AND s.effective_start<$3 AND coalesce(s.effective_stop,$4)>$2 AND($5='' OR s.farm_id=NULLIF($5,'')::uuid)`, worker, from, to, now, farm)
 	if e != nil {
 		return timeTotals{}, e
 	}

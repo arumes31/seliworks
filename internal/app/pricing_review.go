@@ -18,7 +18,7 @@ func (a *App) reviewPricing(w http.ResponseWriter, r *http.Request) {
 	var state string
 	var version int64
 	var activity, dayType *string
-	if err = tx.QueryRow(r.Context(), `SELECT state,version,activity_id::text,day_type FROM work_sessions WHERE id=$1 FOR SHARE`, id).Scan(&state, &version, &activity, &dayType); err != nil {
+	if err = tx.QueryRow(r.Context(), `SELECT state,version,activity_id::text,day_type FROM work_sessions WHERE id=$1 AND state<>'DELETED' FOR SHARE`, id).Scan(&state, &version, &activity, &dayType); err != nil {
 		handleError(w, r, err)
 		return
 	}

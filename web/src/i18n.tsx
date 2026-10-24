@@ -97,6 +97,33 @@ export const en = {
   deductionReason: "Reason for additional deduction",
   deduction: "Additional deduction",
   adminEditEntry: "Edit complete entry",
+  passkeys: "Passkeys",
+  passkeysDescription:
+    "Sign in with your fingerprint, face, device PIN or security key. You can save several passkeys. Your password remains available.",
+  passkeyCreated: "Created",
+  passkeyLastUsed: "Last used",
+  passkeyNever: "Not yet",
+  noPasskeys: "No passkey has been set up yet.",
+  addPasskey: "Add passkey",
+  removePasskey: "Remove passkey",
+  removePasskeyConfirm:
+    "Remove this passkey from your account? Other signed-in sessions will be signed out.",
+  passkeyUnsupported:
+    "This browser does not support passkeys. You can still sign in with your password.",
+  passkeySetupHint:
+    "Give this passkey a recognizable name and confirm your current credentials. Your device will then ask you to approve its creation.",
+  passkeyName: "Passkey name",
+  passkeyNameExample: "e.g. Phone or security key",
+  passkeyPrompt: "Set up a passkey for your next sign-in",
+  later: "Later",
+  setupPasskey: "Set up passkey",
+  passkeySignIn: "Sign in with a passkey",
+
+  deleteWork: "Delete work entry",
+  confirmDeleteWork: "Permanently delete",
+  deleteWorkWarning:
+    "Delete this entry? It will be removed from lists and totals. The original record and deletion reason remain in the audit trail. This cannot be undone here.",
+  deleteWorkStopFirst: "Stop running work before deleting it.",
   adminEditHint:
     "Original server evidence is preserved. Changes return this entry for approval. Invoiced time requires a financial adjustment.",
   invalidNet:
@@ -471,6 +498,33 @@ export const de: Record<Key, string> = {
   deductionReason: "Begründung für den zusätzlichen Abzug",
   deduction: "Zusätzlicher Abzug",
   adminEditEntry: "Eintrag vollständig bearbeiten",
+  passkeys: "Passkeys",
+  passkeysDescription:
+    "Melde dich mit Fingerabdruck, Gesicht, Geräte-PIN oder Sicherheitsschlüssel an. Du kannst mehrere Passkeys speichern. Dein Passwort bleibt weiterhin nutzbar.",
+  passkeyCreated: "Erstellt",
+  passkeyLastUsed: "Zuletzt verwendet",
+  passkeyNever: "Noch nicht",
+  noPasskeys: "Noch kein Passkey eingerichtet.",
+  addPasskey: "Passkey hinzufügen",
+  removePasskey: "Passkey entfernen",
+  removePasskeyConfirm:
+    "Diesen Passkey aus deinem Konto entfernen? Andere angemeldete Sitzungen werden abgemeldet.",
+  passkeyUnsupported:
+    "Dieser Browser unterstützt keine Passkeys. Du kannst dich weiterhin mit deinem Passwort anmelden.",
+  passkeySetupHint:
+    "Gib dem Passkey einen erkennbaren Namen und bestätige deine aktuellen Zugangsdaten. Anschließend fragt dein Gerät nach der Freigabe.",
+  passkeyName: "Passkey-Name",
+  passkeyNameExample: "z. B. Smartphone oder Sicherheitsschlüssel",
+  passkeyPrompt: "Passkey für deine nächste Anmeldung einrichten",
+  later: "Später",
+  setupPasskey: "Passkey einrichten",
+  passkeySignIn: "Mit Passkey anmelden",
+
+  deleteWork: "Arbeitseintrag löschen",
+  confirmDeleteWork: "Endgültig löschen",
+  deleteWorkWarning:
+    "Diesen Eintrag löschen? Er wird aus Listen und Summen entfernt. Originaldaten und Löschbegründung bleiben im Prüfprotokoll erhalten. Dies kann hier nicht rückgängig gemacht werden.",
+  deleteWorkStopFirst: "Laufende Arbeit vor dem Löschen zuerst stoppen.",
   adminEditHint:
     "Die ursprüngliche Serveraufzeichnung bleibt erhalten. Änderungen erfordern eine erneute Genehmigung. Verrechnete Zeit benötigt eine finanzielle Korrektur.",
   invalidNet:

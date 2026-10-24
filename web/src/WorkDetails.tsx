@@ -27,6 +27,8 @@ export function WorkDetails({
   const version = entry.version;
   const [adminEditing, setAdminEditing] = useState(false);
   const [correction, setCorrection] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const canEdit =
     !admin && ["STOPPED_PENDING_DETAILS", "REJECTED"].includes(entry.state);
   const dayType =
@@ -36,8 +38,72 @@ export function WorkDetails({
       : entry.is_vacation_day === false
         ? "REGULAR"
         : null);
+  if (deleting && admin) {
+    return (
+      <Modal
+        key="delete-confirmation"
+        title={t("deleteWork")}
+        busy={deleteBusy}
+        onClose={() => setDeleting(false)}
+      >
+        <p>{t("deleteWorkWarning")}</p>
+        <dl className="evidence">
+          <div>
+            <dt>{t("worker")}</dt>
+            <dd>{entry.worker_name}</dd>
+          </div>
+          <div>
+            <dt>{t("farm")}</dt>
+            <dd>{entry.farm_name}</dd>
+          </div>
+          <div>
+            <dt>{t("effective")}</dt>
+            <dd>
+              {date(entry.effective_start || entry.started_at)} —{" "}
+              {date(entry.effective_stop || entry.stopped_at!)}
+            </dd>
+          </div>
+        </dl>
+        <ActionForm
+          label={t("confirmDeleteWork")}
+          secondary={
+            <button
+              type="button"
+              className="button secondary"
+              disabled={deleteBusy}
+              onClick={() => setDeleting(false)}
+            >
+              {t("cancel")}
+            </button>
+          }
+          onSubmit={async (form) => {
+            setDeleteBusy(true);
+            try {
+              await api(`/admin/work-sessions/${entry.id}`, "DELETE", {
+                version,
+                reason: form.get("reason"),
+              });
+              onSaved();
+              onClose();
+            } finally {
+              setDeleteBusy(false);
+            }
+          }}
+        >
+          <Field label={t("reason")}>
+            <textarea
+              name="reason"
+              required
+              maxLength={2000}
+              disabled={deleteBusy}
+            />
+          </Field>
+        </ActionForm>
+      </Modal>
+    );
+  }
   return (
-    <Modal title={entry.farm_name} onClose={onClose} wide>
+    <Modal key="work-details" title={entry.farm_name} onClose={onClose} wide>
       <div className="entry-top">
         <Status state={entry.state} />
         <strong>{hours(entry.net_us ?? entry.elapsed_us)}</strong>
@@ -104,6 +170,20 @@ export function WorkDetails({
         </button>
       )}
       {canEdit && <div className="notice">{t("pending")}</div>}
+      {admin && !adminEditing && (
+        <div className="separated">
+          <button
+            className="button secondary danger-text"
+            disabled={!entry.stopped_at}
+            onClick={() => setDeleting(true)}
+          >
+            {t("deleteWork")}
+          </button>
+          {!entry.stopped_at && (
+            <p className="muted">{t("deleteWorkStopFirst")}</p>
+          )}
+        </div>
+      )}
       {canEdit || adminEditing ? (
         <WorkEditor
           entry={entry}

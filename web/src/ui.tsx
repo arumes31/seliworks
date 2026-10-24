@@ -92,11 +92,13 @@ export function Modal({
   children,
   onClose,
   wide = false,
+  busy = false,
 }: {
   title: string;
   children: ReactNode;
   onClose: () => void;
   wide?: boolean;
+  busy?: boolean;
 }) {
   const { t } = useI18n();
   const ref = useRef<HTMLDialogElement>(null);
@@ -119,9 +121,12 @@ export function Modal({
       ref={ref}
       aria-labelledby={titleId}
       className={wide ? "wide" : ""}
-      onCancel={onClose}
+      onCancel={(e) => {
+        e.preventDefault();
+        if (!busy) onClose();
+      }}
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (!busy && e.target === e.currentTarget) onClose();
       }}
     >
       <div className="dialog-header">
@@ -129,6 +134,7 @@ export function Modal({
         <button
           className="icon-button"
           onClick={onClose}
+          disabled={busy}
           aria-label={t("close")}
         >
           <X />

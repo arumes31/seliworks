@@ -4,6 +4,10 @@ Self-hosted farm work recording: Go, PostgreSQL and a responsive React/TypeScrip
 
 One deployment represents one billing organization, with any number of workers and customer farms. Defaults are Europe/Vienna, EUR, German with English selection, actual duration and no automatic breaks. Administrators configure separate vacation/public-holiday surcharges as a percentage or extra currency per hour. Customer charges are not payroll wages.
 
+Administrators can delete stopped work from its details dialog after confirming the entry and entering a reason. Deleted work is excluded from operational lists, reports and totals; original evidence and the deletion audit remain in exports. Active invoice allocations must first be cancelled or reversed through the invoice workflow.
+
+Passkeys are available from Profile, with a setup reminder for accounts without one and a dedicated login button. Each account can name and manage up to 20 passkeys. Registration and removal require the current password and configured MFA; passkey login requires device user verification. Removing a passkey signs out other sessions. Operator password reset and invitation-based account recovery revoke existing passkeys. The relying-party domain and accepted origin come only from `APP_URL`: use a stable HTTPS hostname, or `http://localhost:<port>` for local passkey testing. Changing the hostname requires registering new passkeys. Password login remains available.
+
 ## Run with Docker Compose
 
 Requirements: a Linux Docker host with Compose v2, an existing HTTPS reverse proxy and its external Docker network, DNS, and OpenSSL. PowerShell users can run the POSIX operational scripts through WSL or Git Bash. Keep secrets and backups outside synchronized/shared folders on the production host.

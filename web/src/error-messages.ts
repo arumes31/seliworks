@@ -1,4 +1,14 @@
 const de: Record<string, string> = {
+  PASSKEY_INVALID:
+    "Der Passkey konnte nicht bestätigt werden oder die Anfrage ist abgelaufen. Starte den Vorgang erneut.",
+  PASSKEY_LIMIT:
+    "Es sind bereits 20 Passkeys gespeichert. Entferne zuerst einen nicht mehr verwendeten Schlüssel.",
+  PASSKEY_CANCELLED:
+    "Passkey-Vorgang abgebrochen oder nicht verfügbar. Versuche es erneut oder verwende dein Passwort.",
+  PASSKEY_EXISTS:
+    "Dieser Passkey ist bereits eingerichtet. Wähle ein anderes Gerät oder einen anderen Schlüssel.",
+  PASSKEY_UNSUPPORTED:
+    "Dieser Browser unterstützt keine Passkeys. Verwende dein Passwort.",
   NETWORK_READ:
     "Die Daten konnten nicht geladen werden. Prüfe deine Verbindung und aktualisiere die Ansicht.",
   NETWORK_WRITE:

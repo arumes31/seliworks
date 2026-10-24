@@ -10,6 +10,7 @@ import (
 
 var retentionRelations = []struct{ table, timestamp string }{
 	{"auth_sessions", "expires_at"},
+	{"passkey_ceremonies", "expires_at"},
 	{"invitations", "expires_at"},
 	{"auth_limits", "window_start"},
 }

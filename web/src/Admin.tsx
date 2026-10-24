@@ -505,7 +505,10 @@ export function Entries({
           activities={activities}
           admin
           onClose={() => setSelected(undefined)}
-          onSaved={() => void result.refresh()}
+          onSaved={() => {
+            setChecked([]);
+            void result.refresh();
+          }}
         />
       )}{" "}
       {manual && (

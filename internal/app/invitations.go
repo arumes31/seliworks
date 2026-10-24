@@ -106,6 +106,9 @@ func (a *App) setupAccount(w http.ResponseWriter, r *http.Request) {
 		_, e = tx.Exec(r.Context(), `DELETE FROM user_totp WHERE user_id=$1`, id)
 	}
 	if e == nil {
+		_, e = tx.Exec(r.Context(), `DELETE FROM passkeys WHERE user_id=$1`, id)
+	}
+	if e == nil {
 		_, e = tx.Exec(r.Context(), `DELETE FROM recovery_codes WHERE user_id=$1`, id)
 	}
 	if e == nil {

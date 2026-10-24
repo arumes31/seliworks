@@ -121,6 +121,7 @@ func (a *App) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/auth/setup", a.setupAccount)
 	a.registerCore(mux)
 	a.registerTOTP(mux)
+	a.registerPasskeys(mux)
 	a.registerAdmin(mux)
 	a.registerBilling(mux)
 	a.registerMail(mux)

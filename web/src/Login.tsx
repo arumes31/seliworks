@@ -8,6 +8,7 @@ import { api, APIError } from "./api";
 
 import { useI18n } from "./i18n";
 
+import { loginWithPasskey, passkeysSupported } from "./webauthn-client";
 import { ActionForm, Brand, Field } from "./ui";
 
 export function Login({
@@ -142,6 +143,16 @@ export function Login({
               </Field>
             )}
           </ActionForm>
+          {passkeysSupported() && (
+            <ActionForm
+              label={t("passkeySignIn")}
+              onSubmit={async () => {
+                onLogin(await loginWithPasskey());
+              }}
+            >
+              <></>
+            </ActionForm>
+          )}
           <p className="login-help">{t("loginHelp")}</p>
           <div className="secure-note">
             <ShieldCheck size={17} />

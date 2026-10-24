@@ -27,6 +27,7 @@ func (a *App) registerAdmin(m *http.ServeMux) {
 	}
 	m.HandleFunc("POST /api/v1/admin/work-sessions/{id}/approve", a.requireAdmin(a.approve))
 	m.HandleFunc("PATCH /api/v1/admin/work-sessions/{id}", a.requireAdmin(a.editWork))
+	m.HandleFunc("DELETE /api/v1/admin/work-sessions/{id}", a.requireAdmin(a.deleteWork))
 	m.HandleFunc("POST /api/v1/admin/work-sessions/{id}/reject", a.requireAdmin(a.reject))
 	m.HandleFunc("POST /api/v1/admin/work-sessions/manual", a.requireAdmin(a.manual))
 	m.HandleFunc("GET /api/v1/admin/corrections", a.requireAdmin(a.corrections))
@@ -467,7 +468,7 @@ func (a *App) manual(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 201, v)
 }
 func (a *App) corrections(w http.ResponseWriter, r *http.Request) {
-	items, e := queryItems(r.Context(), a.DB, `SELECT to_jsonb(c)||jsonb_build_object('worker_name',u.name,'farm_name',f.name,'original_start',s.started_at,'original_stop',s.stopped_at,'effective_start',s.effective_start,'effective_stop',s.effective_stop) FROM corrections c JOIN work_sessions s ON s.id=c.session_id JOIN users u ON u.id=s.worker_id JOIN farms f ON f.id=s.farm_id ORDER BY c.created_at DESC LIMIT 100`)
+	items, e := queryItems(r.Context(), a.DB, `SELECT to_jsonb(c)||jsonb_build_object('worker_name',u.name,'farm_name',f.name,'original_start',s.started_at,'original_stop',s.stopped_at,'effective_start',s.effective_start,'effective_stop',s.effective_stop) FROM corrections c JOIN work_sessions s ON s.id=c.session_id JOIN users u ON u.id=s.worker_id JOIN farms f ON f.id=s.farm_id WHERE s.state<>'DELETED' ORDER BY c.created_at DESC LIMIT 100`)
 	if e != nil {
 		handleError(w, r, e)
 		return
