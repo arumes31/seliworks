@@ -1,6 +1,10 @@
 import { createContext, useContext } from "react";
 
 export const en = {
+  teamTimesheets: "Employee timesheets (PDF)",
+  timesheetAllWorkers: "All employees (including inactive)",
+  teamTimesheetHint:
+    "Completed work entries with breaks and deductions. Both dates included, maximum one year. Each employee starts on a separate page with their own totals. Employees without entries receive an empty timesheet.",
   personalTimesheet: "Personal timesheet (PDF)",
   timesheetThrough: "Through (included)",
   downloadTimesheet: "Download PDF",
@@ -416,6 +420,10 @@ export const en = {
 export type Key = keyof typeof en;
 
 export const de: Record<Key, string> = {
+  teamTimesheets: "Zeitnachweise Mitarbeitende (PDF)",
+  timesheetAllWorkers: "Alle Mitarbeitenden (auch inaktive)",
+  teamTimesheetHint:
+    "Beendete Arbeitseinträge mit Pausen und Abzügen. Beide Tage eingeschlossen, maximal ein Jahr. Jeder Mitarbeiter beginnt auf einer eigenen Seite mit eigenen Summen. Mitarbeitende ohne Einträge erhalten einen leeren Nachweis.",
   personalTimesheet: "Persönlicher Zeitnachweis (PDF)",
   timesheetThrough: "Bis (einschließlich)",
   downloadTimesheet: "PDF herunterladen",

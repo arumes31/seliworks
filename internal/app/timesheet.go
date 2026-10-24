@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -34,11 +36,44 @@ func timesheetDateRange(from, to, zone string) (time.Time, time.Time, error) {
 }
 
 func (a *App) personalTimesheet(w http.ResponseWriter, r *http.Request) {
+	a.serveTimesheet(w, r, false)
+}
+
+func (a *App) adminTimesheets(w http.ResponseWriter, r *http.Request) {
+	a.serveTimesheet(w, r, true)
+}
+
+const timesheetEligible = `(u.is_worker OR EXISTS(SELECT 1 FROM work_sessions s WHERE s.worker_id=u.id))`
+
+func (a *App) serveTimesheet(w http.ResponseWriter, r *http.Request, admin bool) {
 	q := r.URL.Query()
 	for key, values := range q {
-		if (key != "from" && key != "to" && key != "lang") || len(values) != 1 {
-			fail(w, r, 422, "VALIDATION", "Only from, to and lang are supported")
+		if admin && key == "worker_id" {
+			continue
+		}
+		if (key != "from" && key != "to" && key != "lang" && !(admin && key == "all")) || len(values) != 1 {
+			fail(w, r, 422, "VALIDATION", "Unsupported or repeated export parameter")
 			return
+		}
+	}
+	ids := []string{actor(r).ID}
+	all := false
+	if admin {
+		ids = q["worker_id"]
+		all = q.Get("all") == "true"
+		if (q.Has("all") && !all) || (all && len(ids) != 0) || (!all && len(ids) == 0) || len(ids) > 100 {
+			fail(w, r, 422, "TIMESHEET_WORKERS", "Choose all employees or up to 100 distinct employees")
+			return
+		}
+		seen := make(map[uuid.UUID]bool)
+		for i, id := range ids {
+			parsed, e := uuid.Parse(id)
+			if e != nil || parsed.String() != strings.ToLower(id) || seen[parsed] {
+				fail(w, r, 422, "TIMESHEET_WORKERS", "Choose distinct valid employees")
+				return
+			}
+			seen[parsed] = true
+			ids[i] = parsed.String()
 		}
 	}
 	lang := q.Get("lang")
@@ -68,24 +103,62 @@ func (a *App) personalTimesheet(w http.ResponseWriter, r *http.Request) {
 		handleError(w, r, err)
 		return
 	}
-	rows, err := tx.Query(r.Context(), `SELECT f.name,coalesce(c.name,''),s.description,s.state,coalesce(s.day_type,''),s.deduction_reason,s.effective_start,s.effective_stop,s.additional_deduction_us,
+	docs := []timesheetDocument{d}
+	indices := map[string]int{actor(r).ID: 0}
+	if admin {
+		workers, e := tx.Query(r.Context(), `SELECT u.id::text,u.name,u.email FROM users u WHERE `+timesheetEligible+` AND ($1 OR u.id=ANY($2::uuid[])) ORDER BY u.name,u.id LIMIT 101`, all, ids)
+		if e != nil {
+			handleError(w, r, e)
+			return
+		}
+		docs = nil
+		indices = make(map[string]int)
+		selected := []string{}
+		for workers.Next() {
+			var id, name, email string
+			if e = workers.Scan(&id, &name, &email); e != nil {
+				break
+			}
+			section := d
+			section.Worker = name + " (" + email + ")"
+			indices[id] = len(docs)
+			docs = append(docs, section)
+			selected = append(selected, id)
+		}
+		if e == nil {
+			e = workers.Err()
+		}
+		workers.Close()
+		if e != nil {
+			handleError(w, r, e)
+			return
+		}
+		if len(docs) == 0 || len(docs) > 100 || (!all && len(docs) != len(ids)) {
+			fail(w, r, 422, "TIMESHEET_WORKERS", "Choose between 1 and 100 existing employees")
+			return
+		}
+		ids = selected
+	}
+	rows, err := tx.Query(r.Context(), `SELECT s.worker_id::text,f.name,coalesce(c.name,''),s.description,s.state,coalesce(s.day_type,''),s.deduction_reason,s.effective_start,s.effective_stop,s.additional_deduction_us,
  coalesce((SELECT jsonb_agg(jsonb_build_object('started_at',b.started_at,'stopped_at',b.stopped_at)) FROM work_break_intervals b WHERE b.session_id=s.id),'[]'::jsonb)
  FROM work_sessions s JOIN farms f ON f.id=s.farm_id LEFT JOIN activities c ON c.id=s.activity_id
- WHERE s.worker_id=$1 AND s.state NOT IN ('RUNNING','DELETED') AND s.effective_stop IS NOT NULL AND s.effective_start<$3 AND s.effective_stop>$2
- ORDER BY s.effective_start,s.id LIMIT 2001`, actor(r).ID, start, stop)
+ WHERE s.worker_id=ANY($1::uuid[]) AND s.state NOT IN ('RUNNING','DELETED') AND s.effective_stop IS NOT NULL AND s.effective_start<$3 AND s.effective_stop>$2
+ ORDER BY s.effective_start,s.id LIMIT 2001`, ids, start, stop)
 	if err != nil {
 		handleError(w, r, err)
 		return
 	}
 	defer rows.Close()
 	textBytes := 0
+	entryCount := 0
 	for rows.Next() {
 		var e timesheetEntry
+		var workerID string
 		var sourceStart, sourceStop time.Time
 		var deduction int64
 		var raw []byte
 		var breaks []priceInterval
-		if err = rows.Scan(&e.Farm, &e.Activity, &e.Description, &e.State, &e.DayType, &e.DeductionReason, &sourceStart, &sourceStop, &deduction, &raw); err != nil {
+		if err = rows.Scan(&workerID, &e.Farm, &e.Activity, &e.Description, &e.State, &e.DayType, &e.DeductionReason, &sourceStart, &sourceStop, &deduction, &raw); err != nil {
 			handleError(w, r, err)
 			return
 		}
@@ -100,8 +173,10 @@ func (a *App) personalTimesheet(w http.ResponseWriter, r *http.Request) {
 		e.DeductionUS = allocatedDeductionUS(sourceStart, sourceStop, e.Start, e.Stop, breaks, deduction)
 		e.NetUS = rawNet - e.DeductionUS
 		textBytes += len(e.Farm) + len(e.Activity) + len(e.Description) + len(e.DeductionReason)
-		d.Items = append(d.Items, e)
-		if len(d.Items) > 2000 || textBytes > 1_000_000 {
+		index := indices[workerID]
+		docs[index].Items = append(docs[index].Items, e)
+		entryCount++
+		if entryCount > 2000 || textBytes > 1_000_000 {
 			fail(w, r, 422, "TIMESHEET_TOO_LARGE", "Too many entries or too much text; select a shorter period")
 			return
 		}
@@ -115,11 +190,11 @@ func (a *App) personalTimesheet(w http.ResponseWriter, r *http.Request) {
 		handleError(w, r, err)
 		return
 	}
-	if len(d.Items) == 0 {
+	if entryCount == 0 && !admin {
 		fail(w, r, 422, "TIMESHEET_EMPTY", "No completed work entries in this period")
 		return
 	}
-	raw, err := renderTimesheetPDF(d)
+	raw, err := renderTimesheetPDFs(docs, admin)
 	if err != nil {
 		handleError(w, r, err)
 		return

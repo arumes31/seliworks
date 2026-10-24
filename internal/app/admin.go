@@ -11,6 +11,7 @@ import (
 )
 
 func (a *App) registerAdmin(m *http.ServeMux) {
+	m.HandleFunc("GET /api/v1/admin/timesheets.pdf", a.requireAdmin(a.adminTimesheets))
 	m.HandleFunc("GET /api/v1/admin/work-sessions/{id}/pricing", a.requireAdmin(a.reviewPricing))
 	m.HandleFunc("GET /api/v1/admin/export", a.requireAdmin(a.exportBusinessData))
 	m.HandleFunc("GET /api/v1/admin/retention", a.requireAdmin(a.previewRetention))
@@ -40,7 +41,7 @@ func (a *App) registerAdmin(m *http.ServeMux) {
 	m.HandleFunc("PATCH /api/v1/admin/special-day-pricing/{day_type}", a.requireAdmin(a.saveDayPricing))
 }
 func (a *App) workers(w http.ResponseWriter, r *http.Request) {
-	items, e := queryItems(r.Context(), a.DB, `SELECT jsonb_build_object('id',u.id,'name',u.name,'email',u.email,'is_admin',u.is_admin,'is_worker',u.is_worker,'active',u.active,'language',u.language,'theme',u.theme,'version',u.version,'assignment_revision',`+workerAssignmentRevision+`,'farm_ids',coalesce((SELECT jsonb_agg(f.id ORDER BY f.id) FROM farms f WHERE u.is_worker AND (f.assign_all_workers OR EXISTS(SELECT 1 FROM worker_farms wf WHERE wf.farm_id=f.id AND wf.worker_id=u.id))),'[]'::jsonb),'running',EXISTS(SELECT 1 FROM work_sessions WHERE worker_id=u.id AND stopped_at IS NULL)) FROM users u ORDER BY name`)
+	items, e := queryItems(r.Context(), a.DB, `SELECT jsonb_build_object('id',u.id,'name',u.name,'email',u.email,'is_admin',u.is_admin,'is_worker',u.is_worker,'timesheet_eligible',`+timesheetEligible+`,'active',u.active,'language',u.language,'theme',u.theme,'version',u.version,'assignment_revision',`+workerAssignmentRevision+`,'farm_ids',coalesce((SELECT jsonb_agg(f.id ORDER BY f.id) FROM farms f WHERE u.is_worker AND (f.assign_all_workers OR EXISTS(SELECT 1 FROM worker_farms wf WHERE wf.farm_id=f.id AND wf.worker_id=u.id))),'[]'::jsonb),'running',EXISTS(SELECT 1 FROM work_sessions WHERE worker_id=u.id AND stopped_at IS NULL)) FROM users u ORDER BY name`)
 	if e != nil {
 		handleError(w, r, e)
 		return

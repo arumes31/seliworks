@@ -1,4 +1,6 @@
 const de: Record<string, string> = {
+  TIMESHEET_WORKERS:
+    "Wähle alle oder bis zu 100 verschiedene Mitarbeitende aus. Die Auswahl muss gültig und nicht leer sein.",
   TIMESHEET_PERIOD:
     "Wähle gültige Von-/Bis-Daten für höchstens ein Jahr. Beide Tage werden eingeschlossen.",
   TIMESHEET_EMPTY:
