@@ -83,16 +83,14 @@ func renderInvoicePDF(d invoiceDocument) ([]byte, error) {
 		return nil, err
 	}
 	details := func() {
+		measure := newInvoicePDFMeasurer()
 		for i, item := range d.Items {
-			if pdf.GetY() > 248 {
-				pdf.AddPage()
-			}
-			pdf.SetTextColor(38, 34, 27)
-			pdf.SetFont("Go", "", 10)
-			pdf.MultiCell(178, 6, fmt.Sprintf("%d. %s · %s", i+1, item.Activity, item.Worker), "", "L", false)
-			pdf.SetFont("Go", "", 9)
-			pdf.MultiCell(178, 5, item.Start.In(loc).Format("02.01.2006 15:04 -07:00")+" → "+item.Stop.In(loc).Format("02.01.2006 15:04 -07:00"), "", "L", false)
-			pdf.MultiCell(178, 5, item.Description, "", "L", false)
+			var lines []invoicePDFLine
+			fontSize := 10.0
+			lines = append(lines, invoicePDFLine{fontSize, 6, fmt.Sprintf("%d. %s · %s", i+1, item.Activity, item.Worker)})
+			fontSize = 9
+			lines = append(lines, invoicePDFLine{fontSize, 5, item.Start.In(loc).Format("02.01.2006 15:04 -07:00") + " → " + item.Stop.In(loc).Format("02.01.2006 15:04 -07:00")})
+			lines = append(lines, invoicePDFLine{fontSize, 5, item.Description})
 			if p := item.Pricing.SpecialDayPolicy; p != nil {
 				label := "Urlaubstag / Vacation day"
 				if p.DayType == "HOLIDAY" {
@@ -102,15 +100,15 @@ func renderInvoicePDF(d invoiceDocument) ([]byte, error) {
 				if p.Mode == "hourly" {
 					extra = "+" + p.Value + " " + d.Currency + "/h"
 				}
-				pdf.MultiCell(178, 5, label+": "+extra, "", "L", false)
+				lines = append(lines, invoicePDFLine{fontSize, 5, label + ": " + extra})
 			}
 			hours := newDecimalHours(item.NetUS)
-			pdf.MultiCell(178, 5, fmt.Sprintf("Actual net / Nettozeit: %s h     %s %s", hours, item.Net, d.Currency), "", "L", false)
+			lines = append(lines, invoicePDFLine{fontSize, 5, fmt.Sprintf("Actual net / Nettozeit: %s h     %s %s", hours, item.Net, d.Currency)})
 			if item.Pricing.AdditionalDeductionUS > 0 {
 				deduction := allocatedDeductionUS(item.Pricing.SourceStart, item.Pricing.SourceStop, item.Start, item.Stop, item.Pricing.Breaks, item.Pricing.AdditionalDeductionUS)
-				pdf.MultiCell(178, 4, "Additional deduction / Zusätzlicher Abzug: "+newDecimalHours(deduction)+" h", "", "L", false)
+				lines = append(lines, invoicePDFLine{fontSize, 4, "Additional deduction / Zusätzlicher Abzug: " + newDecimalHours(deduction) + " h"})
 				if item.Pricing.DeductionReason != "" {
-					pdf.MultiCell(178, 4, item.Pricing.DeductionReason, "", "L", false)
+					lines = append(lines, invoicePDFLine{fontSize, 4, item.Pricing.DeductionReason})
 				}
 			}
 			for _, seg := range item.Pricing.Segments {
@@ -122,15 +120,12 @@ func renderInvoicePDF(d invoiceDocument) ([]byte, error) {
 				if item.Pricing.AdditionalDeductionUS > 0 {
 					net = billableMicroseconds(item.Pricing.SourceStart, item.Pricing.SourceStop, x, y, item.Pricing.Breaks, item.Pricing.AdditionalDeductionUS)
 				}
-				pdf.MultiCell(178, 4, fmt.Sprintf("  %s – %s: %s h × %s %s/h", x.In(loc).Format("02.01 15:04"), y.In(loc).Format("02.01 15:04"), newDecimalHours(net), seg.Rate, d.Currency), "", "L", false)
+				lines = append(lines, invoicePDFLine{fontSize, 4, fmt.Sprintf("  %s – %s: %s h × %s %s/h", x.In(loc).Format("02.01 15:04"), y.In(loc).Format("02.01 15:04"), newDecimalHours(net), seg.Rate, d.Currency)})
 				if item.Pricing.SpecialDayPolicy != nil && seg.BaseRate != "" {
-					pdf.MultiCell(178, 4, "  Base rate / Basissatz: "+seg.BaseRate+" "+d.Currency+"/h", "", "L", false)
+					lines = append(lines, invoicePDFLine{fontSize, 4, "  Base rate / Basissatz: " + seg.BaseRate + " " + d.Currency + "/h"})
 				}
 			}
-			pdf.Ln(4)
-			pdf.SetDrawColor(227, 220, 208)
-			pdf.Line(16, pdf.GetY(), 194, pdf.GetY())
-			pdf.Ln(4)
+			drawInvoiceDetailBlock(pdf, measure, lines)
 		}
 	}
 	if d.Issuer.InvoiceLayout == "activity_rate" {

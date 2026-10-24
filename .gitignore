@@ -19,6 +19,7 @@ backups/
 !internal/app/delete_work_test.go
 !internal/app/passkeys_test.go
 !internal/app/farm_assignments_test.go
+!internal/app/billing_pdf_pagination_test.go
 *.test.*
 *.spec.*
 web/test/*
