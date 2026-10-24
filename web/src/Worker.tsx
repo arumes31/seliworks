@@ -30,6 +30,7 @@ import {
 } from "./ui";
 
 import { WorkDetails } from "./WorkDetails";
+import { TimesheetExport } from "./TimesheetExport";
 
 interface Summary {
   today_us: number;
@@ -502,7 +503,7 @@ export function History({
   );
   return (
     <>
-      <PageHeader title={t("history")} />
+      <PageHeader title={t("history")} action={<TimesheetExport />} />
       <div className="filters">
         <Field label={t("from")}>
           <input

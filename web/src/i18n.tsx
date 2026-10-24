@@ -1,6 +1,11 @@
 import { createContext, useContext } from "react";
 
 export const en = {
+  personalTimesheet: "Personal timesheet (PDF)",
+  timesheetThrough: "Through (included)",
+  downloadTimesheet: "Download PDF",
+  timesheetHint:
+    "Your completed work entries, including breaks and deductions. Both dates are included; running entries are excluded. Maximum period: one year.",
   actions: "Actions",
   offsetChoice: "UTC offset",
   ambiguousLocal:
@@ -411,6 +416,11 @@ export const en = {
 export type Key = keyof typeof en;
 
 export const de: Record<Key, string> = {
+  personalTimesheet: "Persönlicher Zeitnachweis (PDF)",
+  timesheetThrough: "Bis (einschließlich)",
+  downloadTimesheet: "PDF herunterladen",
+  timesheetHint:
+    "Deine beendeten Arbeitseinträge mit Pausen und Abzügen. Beide Tage sind eingeschlossen; laufende Einträge werden ausgelassen. Maximaler Zeitraum: ein Jahr.",
   actions: "Aktionen",
   offsetChoice: "UTC-Offset",
   ambiguousLocal:

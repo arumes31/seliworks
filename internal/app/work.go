@@ -31,6 +31,7 @@ func (a *App) registerCore(m *http.ServeMux) {
 	m.HandleFunc("GET /api/v1/activities", a.requireAuth(a.activities))
 	m.HandleFunc("GET /api/v1/me/active-work-session", a.requireAuth(a.activeSession))
 	m.HandleFunc("GET /api/v1/me/summary", a.requireAuth(a.summary))
+	m.HandleFunc("GET /api/v1/me/timesheet.pdf", a.requireAuth(a.personalTimesheet))
 	m.HandleFunc("GET /api/v1/work-sessions", a.requireAuth(a.listSessions))
 	m.HandleFunc("GET /api/v1/work-sessions/{id}", a.requireAuth(a.getSession))
 	m.HandleFunc("POST /api/v1/work-sessions/start", a.requireAuth(a.start))

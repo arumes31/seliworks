@@ -20,9 +20,12 @@ backups/
 !internal/app/passkeys_test.go
 !internal/app/farm_assignments_test.go
 !internal/app/billing_pdf_pagination_test.go
+!internal/app/timesheet_pdf_test.go
+!internal/app/timesheet_integration_test.go
 *.test.*
 *.spec.*
 web/test/*
+!web/test/timesheet.browser.mjs
 !web/test/delete-work.browser.mjs
 !web/test/passkeys.browser.mjs
 !web/test/farm-assignments.browser.mjs

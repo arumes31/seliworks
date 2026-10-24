@@ -52,7 +52,7 @@ jobs:
           npm run build
           npx --no-install playwright install --with-deps chromium
       - name: Verify account-security revocation with PostgreSQL and race detection
-        run: go test -tags integration -race ./internal/app -run '^Test(InvitationSecurity|GermanActivitiesMigration|DeleteWork|Passkeys|FarmAssignments)' -count=1 -v
+        run: go test -tags integration -race ./internal/app -run '^Test(InvitationSecurity|GermanActivitiesMigration|DeleteWork|Passkeys|FarmAssignments|Timesheet)' -count=1 -v
   source:
     name: Source build and static checks
     runs-on: ubuntu-24.04
@@ -90,10 +90,11 @@ jobs:
           node --test test/connection.test.mjs test/connection.browser.mjs
           node --test test/updates.browser.mjs
           node --test test/delete-work.browser.mjs test/passkeys.browser.mjs test/farm-assignments.browser.mjs
+          node --test test/timesheet.browser.mjs
       - name: Build Go application
         run: go build -trimpath -o /tmp/seliworks ./cmd/seliworks
       - name: Verify invoice PDF pagination
-        run: go test -race ./internal/app -run '^TestInvoicePDF' -count=1
+        run: go test -race ./internal/app -run '^Test(InvoicePDF|Timesheet)' -count=1
       - name: Validate production and development Compose
         env:
           APP_URL: https://work.example.com
