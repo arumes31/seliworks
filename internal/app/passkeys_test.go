@@ -30,7 +30,7 @@ func TestPasskeysBrowser(t *testing.T) {
 		t.Skip("set SELIWORKS_BROWSER_TEST=1 with built frontend and Chromium")
 	}
 	a, u := invitationSecurityFixture(t)
-	if _, err := a.DB.Exec(context.Background(), `UPDATE users SET language='de' WHERE id=$1`, u.ID); err != nil {
+	if _, err := a.DB.Exec(context.Background(), `UPDATE users SET language='de',is_admin=false WHERE id=$1`, u.ID); err != nil {
 		t.Fatal(err)
 	}
 	static, err := filepath.Abs("../../web/dist")

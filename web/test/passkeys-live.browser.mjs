@@ -73,6 +73,12 @@ try {
   assert.equal((await signedIn).status(), 200);
   await page.goto(origin + "/#profile");
   await page.getByRole("button", { name: "Abmelden", exact: true }).waitFor();
+  assert.equal(
+    await page.evaluate(
+      async () => (await (await fetch("/api/v1/me")).json()).user.is_admin,
+    ),
+    false,
+  );
   const result = await page.evaluate(async () => {
     const r = await fetch("/api/v1/me/passkeys");
     return r.json();
