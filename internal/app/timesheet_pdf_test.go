@@ -49,6 +49,9 @@ func TestTimesheetPDFPagination(t *testing.T) {
 				t.Fatal(err)
 			}
 			pages := invoicePageStreams(t, raw)
+			if len(pages) < 2 {
+				t.Fatal("pagination fixture must span multiple pages")
+			}
 			for i, item := range d.Items {
 				a := pdfMarkerPage(t, pages, item.Farm)
 				label := "Nettozeit: "
