@@ -200,6 +200,8 @@ sudo docker compose ps
 
 The PWA applies application updates automatically when there are no unsaved forms or pending writes. A notice remains visible when unsaved input needs attention first.
 
+The Docker build runs the production frontend build: JavaScript bundles and the service worker are minified with Vite's Oxc minifier, with source maps disabled. GHCR images use the same Dockerfile; readable source files remain in the repository.
+
 Prebuilt AMD64 and ARM64 images are published to [ghcr.io/arumes31/seliworks](https://github.com/arumes31/seliworks/pkgs/container/seliworks). Use a verified digest for reproducible installations, and configure **the application, migration, and bootstrap services to use the same image**. Builds from `main` receive commit tags; `latest` is updated only by stable version releases.
 
 ### Backup and recovery
