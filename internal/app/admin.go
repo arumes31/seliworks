@@ -41,7 +41,7 @@ func (a *App) registerAdmin(m *http.ServeMux) {
 	m.HandleFunc("PATCH /api/v1/admin/special-day-pricing/{day_type}", a.requireAdmin(a.saveDayPricing))
 }
 func (a *App) workers(w http.ResponseWriter, r *http.Request) {
-	items, e := queryItems(r.Context(), a.DB, `SELECT jsonb_build_object('id',u.id,'name',u.name,'email',u.email,'is_admin',u.is_admin,'is_worker',u.is_worker,'timesheet_eligible',`+timesheetEligible+`,'active',u.active,'language',u.language,'theme',u.theme,'version',u.version,'assignment_revision',`+workerAssignmentRevision+`,'farm_ids',coalesce((SELECT jsonb_agg(f.id ORDER BY f.id) FROM farms f WHERE u.is_worker AND (f.assign_all_workers OR EXISTS(SELECT 1 FROM worker_farms wf WHERE wf.farm_id=f.id AND wf.worker_id=u.id))),'[]'::jsonb),'running',EXISTS(SELECT 1 FROM work_sessions WHERE worker_id=u.id AND stopped_at IS NULL)) FROM users u ORDER BY name`)
+	items, e := queryItems(r.Context(), a.DB, `SELECT jsonb_build_object('id',u.id,'name',u.name,'email',u.email,'is_admin',u.is_admin,'is_worker',u.is_worker,'timesheet_eligible',`+timesheetEligible+`,'active',u.active,'language',u.language,'theme',u.theme,'version',u.version,'assignment_revision',`+workerAssignmentRevision+`,'farm_ids',coalesce((SELECT jsonb_agg(f.id ORDER BY f.id) FROM farms f WHERE (u.is_worker OR u.is_admin) AND (f.assign_all_workers OR EXISTS(SELECT 1 FROM worker_farms wf WHERE wf.farm_id=f.id AND wf.worker_id=u.id))),'[]'::jsonb),'running',EXISTS(SELECT 1 FROM work_sessions WHERE worker_id=u.id AND stopped_at IS NULL)) FROM users u ORDER BY name`)
 	if e != nil {
 		handleError(w, r, e)
 		return
@@ -206,7 +206,7 @@ func (a *App) assignFarms(w http.ResponseWriter, r *http.Request) {
 	var id string
 	e = lockFarmAssignments(r.Context(), tx)
 	if e == nil {
-		e = tx.QueryRow(r.Context(), `SELECT id::text FROM users WHERE id=$1 AND is_worker FOR UPDATE`, r.PathValue("id")).Scan(&id)
+		e = tx.QueryRow(r.Context(), `SELECT id::text FROM users WHERE id=$1 AND (is_worker OR is_admin) FOR UPDATE`, r.PathValue("id")).Scan(&id)
 	}
 	if e == nil && in.ExpectedAssignmentRevision != nil {
 		var revision string
