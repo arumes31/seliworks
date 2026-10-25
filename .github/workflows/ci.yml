@@ -85,10 +85,11 @@ jobs:
       - name: Verify onboarding and connection recovery
         working-directory: web
         run: |
-          npx --no-install playwright install --with-deps chromium
+          npx --no-install playwright install --with-deps chromium firefox
           node --test test/invitations-security.browser.mjs
           node --test test/connection.test.mjs test/connection.browser.mjs
           node --test test/updates.browser.mjs
+          SELIWORKS_BROWSER=firefox node --test test/updates.browser.mjs
           node --test test/delete-work.browser.mjs test/passkeys.browser.mjs test/farm-assignments.browser.mjs
           node --test test/timesheet.browser.mjs
       - name: Build Go application

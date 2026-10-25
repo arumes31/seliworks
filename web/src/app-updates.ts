@@ -13,7 +13,12 @@ export function useAppUpdates() {
     let reloading = false;
     let disposed = false;
     const apply = () => {
-      if (disposed || reloading || (!reloadPending && !registration?.waiting))
+      if (
+        disposed ||
+        !controlled ||
+        reloading ||
+        (!reloadPending && !registration?.waiting)
+      )
         return;
       setPending(true);
       if (
@@ -36,6 +41,7 @@ export function useAppUpdates() {
       }
     };
     const changed = () => {
+      activating = false;
       // The initial installation claims the page without requiring a reload.
       if (!controlled) {
         controlled = true;

@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { extname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { before, after, test } from "node:test";
-import { chromium, expect } from "@playwright/test";
+import { chromium, firefox, expect } from "@playwright/test";
 const root = fileURLToPath(new URL("../dist/", import.meta.url));
 let revision = 1,
   server,
@@ -46,7 +46,9 @@ before(async () => {
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   origin = `http://127.0.0.1:${server.address().port}`;
-  browser = await chromium.launch();
+  browser = await (
+    process.env.SELIWORKS_BROWSER === "firefox" ? firefox : chromium
+  ).launch();
 });
 after(async () => {
   await browser?.close();
@@ -65,6 +67,42 @@ test("production service worker is minified and versioned", async () => {
   );
   assert.match(built, /seliworks-shell-[a-f0-9]{20}/);
   assert.doesNotMatch(built, /__BUILD_ID__|sourceMappingURL/);
+});
+
+test("a new worker activates even when the existing client cannot request it", async () => {
+  const context = await browser.newContext();
+  try {
+    const page = await context.newPage();
+    await page.goto(origin + "/offline.html");
+    await page.evaluate(() => navigator.serviceWorker.register("/sw.js"));
+    await page.waitForFunction(() => !!navigator.serviceWorker.controller);
+    revision++;
+    await page.evaluate(async () => {
+      const changed = new Promise((resolve, reject) => {
+        const timeout = setTimeout(
+          () =>
+            reject(
+              new Error("worker still requires a client activation message"),
+            ),
+          7000,
+        );
+        navigator.serviceWorker.addEventListener(
+          "controllerchange",
+          () => {
+            clearTimeout(timeout);
+            resolve(true);
+          },
+          { once: true },
+        );
+      });
+      const registration = await navigator.serviceWorker.getRegistration();
+      await registration.update();
+      await changed;
+    });
+    assert.equal(page.url(), origin + "/offline.html");
+  } finally {
+    await context.close();
+  }
 });
 
 for (const blocker of ["none", "dirty form", "pending write", "offline"]) {
@@ -106,7 +144,7 @@ for (const blocker of ["none", "dirty form", "pending write", "offline"]) {
       await page.waitForFunction(
         () => navigator.serviceWorker.controller !== null,
       );
-      await page.reload();
+      await expect(page.locator(".update-notice")).toHaveCount(0);
       await page
         .getByRole("heading", { name: "Tätigkeiten", exact: true })
         .waitFor();
@@ -125,9 +163,10 @@ for (const blocker of ["none", "dirty form", "pending write", "offline"]) {
         if (frame === page.mainFrame()) navigations++;
       });
       revision++;
-      await page.evaluate(async () => {
-        const reg = await navigator.serviceWorker.getRegistration();
-        await reg.update();
+      await page.evaluate(() => {
+        void navigator.serviceWorker
+          .getRegistration()
+          .then((reg) => reg.update());
       });
       if (blocker !== "none") {
         await expect(page.locator(".update-notice")).toBeVisible();
@@ -199,7 +238,7 @@ test("a clean tab updates while another tab preserves its unsaved form", async (
     await first.goto(origin + "/#activities");
     await first.evaluate(() => navigator.serviceWorker.ready.then(() => true));
     await first.waitForFunction(() => !!navigator.serviceWorker.controller);
-    await first.reload();
+    await expect(first.locator(".update-notice")).toHaveCount(0);
     const second = await context.newPage();
     await second.goto(origin + "/#activities");
     await second
@@ -215,9 +254,10 @@ test("a clean tab updates while another tab preserves its unsaved form", async (
       if (f === second.mainFrame()) secondNavigations++;
     });
     revision++;
-    await first.evaluate(async () => {
-      const reg = await navigator.serviceWorker.getRegistration();
-      await reg.update();
+    await first.evaluate(() => {
+      void navigator.serviceWorker
+        .getRegistration()
+        .then((reg) => reg.update());
     });
     await expect.poll(() => firstNavigations, { timeout: 7000 }).toBe(1);
     await second.waitForTimeout(1200);
