@@ -254,6 +254,8 @@ go build -trimpath -o seliworks ./cmd/seliworks
 
 For a direct runtime, configure `DATABASE_URL` or `DATABASE_URL_FILE`, `APP_URL`, `APP_ENV`, `DATA_DIR`, and `STATIC_DIR`. Run `./seliworks migrate`, `./seliworks bootstrap`, then `./seliworks serve`. Bootstrap also requires the administrator identity and `BOOTSTRAP_PASSWORD_FILE`; TOTP uses `TOTP_KEY_FILE`.
 
+Production is the default and requires an HTTPS `APP_URL` before startup. Session and passkey cookies use `Secure`, `HttpOnly`, and strict SameSite protection. HTTP cookies are permitted only with `APP_ENV=development` and a loopback origin (`localhost`, `127.0.0.1`, or `::1`). Keep `.env`, `.secrets/`, and local `.tools/` files out of Git and container images; CI checks the tracked paths and scans Git history for credentials.
+
 | Directory                  | Contents                                                        |
 | -------------------------- | --------------------------------------------------------------- |
 | `cmd/seliworks/`           | Entry point and operational commands                            |
