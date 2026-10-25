@@ -4,71 +4,71 @@
 
 # SeliWorks
 
-**Zeiterfassung, Zeitnachweise und Kundenabrechnung für landwirtschaftliche Betriebe.**
+**Self-hosted time tracking, PDF timesheets, and customer billing for agricultural teams.**
 
 [![CI](https://github.com/arumes31/seliworks/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/arumes31/seliworks/actions/workflows/ci.yml)
 [![Security](https://github.com/arumes31/seliworks/actions/workflows/security.yml/badge.svg?branch=main)](https://github.com/arumes31/seliworks/actions/workflows/security.yml)
 [![CodeQL](https://github.com/arumes31/seliworks/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/arumes31/seliworks/actions/workflows/codeql.yml)
 
-Arbeit starten, das Handy weglegen und später die Tätigkeit dokumentieren. SeliWorks erfasst Zeiten auf dem Server: Ein geschlossener Browser oder ein Neustart beendet keine laufende Arbeit. Die Oberfläche ist eine responsive, installierbare PWA mit **Deutsch als Standardsprache**, englischer Sprachwahl sowie hellem und dunklem Design.
+Start work, put your phone away, and document the activity when you return. SeliWorks records time on the server: closing the browser or restarting the application does not end a running session. The responsive, installable PWA offers **German by default**, an English language option, and light and dark themes.
 
-Eine Installation verwaltet eine Abrechnungsorganisation mit mehreren Mitarbeitenden, Administratoren und Betrieben beziehungsweise Kunden. Standardwerte sind **Europe/Vienna**, **EUR** und die tatsächliche Arbeitsdauer ohne automatisch abgezogene Pausen. Die Abrechnung betrifft Kundenleistungen; sie ist keine Lohnabrechnung.
+Each installation represents one billing organization with multiple workers, administrators, and farms or customers. Defaults are **Europe/Vienna**, **EUR**, and actual elapsed time without automatic break deductions. Billing covers customer services; it is not payroll.
 
-[Funktionsumfang](#funktionsumfang) · [Installation](#installation) · [Betrieb](#betrieb) · [Entwicklung](#entwicklung) · [Qualitätssicherung](#qualitätssicherung)
+[Features](#features) · [Installation](#installation) · [Operations](#operations) · [Development](#development) · [Quality assurance](#quality-assurance)
 
-## Funktionsumfang
+## Features
 
-| Bereich       | Möglichkeiten                                                                                                                                               |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Zeiterfassung | Starten und Stoppen, Pause mit Zeitangabe oder bis zur Fortsetzung, Tätigkeiten, Beschreibungen und zusätzliche Zeitabzüge                                  |
-| Betriebe      | Einzelzuweisung an Mitarbeitende und Administratoren oder automatisch an alle bestehenden und zukünftigen Benutzer                                          |
-| Verwaltung    | Einträge vollständig bearbeiten, Pausen ergänzen, Zeiten korrigieren und Arbeit auf einen anderen Betrieb umbuchen                                          |
-| Prüfung       | Genehmigen, zurückweisen und gestoppte Einträge nach Bestätigung im Modal mit Begründung löschen                                                            |
-| Zeitnachweise | Eigene Einträge als PDF; Admin-Export für einzelne, ausgewählte oder alle Mitarbeitenden mit getrennten Seiten je Person                                    |
-| Abrechnung    | Stundensätze, getrennte Urlaubs- und Feiertagszuschläge in Prozent oder als zusätzlicher Eurobetrag je Stunde, Rechnungs-PDFs und optionaler E-Mail-Versand |
-| Anmeldung     | Passwort, optionale Authenticator-Absicherung und mehrere benannte Passkeys pro Benutzer                                                                    |
+| Area                | Capabilities                                                                                                                                            |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Time tracking       | Start and stop work, pause for a specified duration or until resumed, record activities and descriptions, and apply additional time deductions          |
+| Farms and customers | Assign individual workers and administrators, or automatically include all current and future users                                                     |
+| Administration      | Edit complete entries, add breaks, correct times, and transfer work to another farm                                                                     |
+| Review              | Approve or reject entries; delete stopped work through a confirmation modal with a required reason                                                      |
+| Timesheets          | Download personal PDF timesheets; administrators can export one, several, or all workers with separate pages per person                                 |
+| Billing             | Hourly rates, separate vacation-day and public-holiday surcharges in percent or additional currency per hour, invoice PDFs, and optional email delivery |
+| Authentication      | Password login, optional authenticator-based MFA, and multiple named passkeys per account                                                               |
 
-### Rollen und Betriebszuweisung
+### Roles and farm assignments
 
-Administrator- und Mitarbeitendenrolle sind unabhängig und können kombiniert werden. Administratoren können auch anderen Administratoren Betriebe zuweisen, selbst wenn diese keine Mitarbeitendenrolle haben. Eine Betriebszuweisung schaltet die Zeiterfassung nicht zusätzlich frei: Dafür ist die Mitarbeitendenrolle erforderlich.
+Administrator and worker permissions are independent and can be combined. Administrators can assign farms to other administrators, including accounts without worker permission. Assignment does not grant permission to record work; that still requires the worker role.
 
-Neue Betriebe verwenden standardmäßig **„Alle Benutzer – auch zukünftige“**. Für eine eingeschränkte Zuweisung lässt sich **„Einzelne Benutzer“** auswählen. Geerbte Zuweisungen werden am Betrieb verwaltet; sie können nicht bei einem einzelnen Benutzer entfernt werden. Bestehende explizite Zuweisungen bleiben bei Migrationen erhalten. Administratoren behalten ihre organisationsweiten Verwaltungsrechte.
+New farms default to **All users – including future users**. Choose **Selected users** to restrict assignments. Inherited assignments are managed on the farm and cannot be removed from an individual user. Existing explicit assignments survive migrations. Administrators retain organization-wide management access.
 
-### Arbeit korrigieren und umbuchen
+### Corrections and transfers
 
-Unter **Arbeitseinträge → Details anzeigen → Eintrag vollständig bearbeiten** steht die Auswahl **Betrieb / Kunde** direkt oben. Ein anderer Betrieb bucht den Eintrag um. Das funktioniert auch bei historischen Einträgen, deren Besitzer die Mitarbeitendenrolle inzwischen verloren hat.
+Open **Work entries → Details → Edit complete entry**. The **Farm / customer** selector appears at the top of the form; selecting another farm transfers the entry. Historical work can also be transferred after its existing owner loses worker permission.
 
-Die ursprüngliche Aufzeichnung und der ursprüngliche Betrieb bleiben dokumentiert. Änderungen werden protokolliert und erfordern eine erneute Genehmigung. Laufende Arbeit muss vor der Bearbeitung oder Löschung gestoppt werden. Aktive Rechnungszuordnungen sperren Änderungen; diese müssen zuerst über den Rechnungsablauf aufgehoben werden. Gelöschte Arbeit verschwindet aus operativen Listen und Summen, bleibt aber mit Originaldaten und Löschbegründung im Prüfexport erhalten.
+The original recording and original farm remain documented. Changes are audited and require fresh approval. Running work must be stopped before editing or deletion. Active invoice allocations block changes and must first be released through the invoice workflow. Deleted work disappears from operational lists and totals, while original evidence and the deletion reason remain in the audit export.
 
-### PDF-Zeitnachweise
+### PDF timesheets
 
-- **Mitarbeitende:** im Verlauf den eigenen Zeitnachweis herunterladen.
-- **Administratoren:** unter Arbeitseinträge **„Zeitnachweise Mitarbeitende (PDF)“** öffnen und eine, mehrere oder alle Personen auswählen.
-- Anfangs- und Enddatum sind eingeschlossen; maßgeblich ist die Zeitzone der Organisation.
-- Die PDFs enthalten beendete Arbeit mit Bruttozeit, Pausen, zusätzlichen Abzügen und Nettozeit. Einträge an den Zeitraumgrenzen werden entsprechend zugeschnitten.
-- Jede Person beginnt auf einer neuen Seite. Lange Beschreibungen werden über Seiten fortgesetzt; Summen bleiben je Person getrennt.
+- **Workers:** download their own timesheet from History.
+- **Administrators:** open the employee timesheet PDF export in Work entries and select one, several, or all people.
+- Both start and end dates are included, using the organization's timezone.
+- PDFs include completed work, gross duration, breaks, additional deductions, and net time. Entries crossing the selected period are clipped to its boundaries.
+- Each person starts on a new page. Long descriptions continue across pages, with separate totals for each person.
 
-Ein Export umfasst höchstens ein Jahr, 100 Personen, 2.000 Einträge und insgesamt 1 MB Eintragstext. Bei größeren Datenmengen den Zeitraum oder die Personenauswahl aufteilen. Ein Zeitnachweis ist unabhängig von der Kundenrechnung.
+Each export supports up to one year, 100 people, 2,000 entries, and 1 MB of entry text. Split larger exports by date or person. Timesheets are separate from customer invoices.
 
-### Passkeys und Anmeldung
+### Passkeys and login
 
-Unter **Profil** können pro Konto bis zu 20 Passkeys eingerichtet, benannt und entfernt werden. Ohne Passkey erscheint eine Einrichtungserinnerung; **„Später erinnern“** verschiebt sie um drei bis sieben Tage. Passwortanmeldung bleibt verfügbar. Das Authenticator-Feld erscheint erst, wenn es für die Anmeldung benötigt wird.
+In **Profile**, each account can register, name, and remove up to 20 passkeys. Accounts without a passkey receive a setup reminder; **Remind me later** postpones it by three to seven days. Password login remains available. The authenticator field appears only when required for login.
 
-Einrichtung und Entfernung erfordern das aktuelle Passwort sowie eine eingerichtete MFA-Bestätigung. Passkey-Anmeldung verlangt die Benutzerbestätigung am Gerät. Eine Entfernung meldet andere Sitzungen ab; Passwortzurücksetzung durch den Betreiber und Kontowiederherstellung per Einladung widerrufen vorhandene Passkeys.
+Registration and removal require the current password and configured MFA. Passkey login requires device user verification. Removing a passkey signs out other sessions; operator password resets and invitation-based account recovery revoke existing passkeys.
 
-Passkeys sind an die in `APP_URL` konfigurierte Domain gebunden. Verwende eine stabile HTTPS-Adresse. Nach einem Domainwechsel müssen Passkeys neu eingerichtet werden; lokal ist `http://localhost:16540` möglich.
+Passkeys are tied to the domain configured in `APP_URL`. Use a stable HTTPS hostname. Changing the domain requires registering new passkeys; `http://localhost:16540` is supported for local testing.
 
 ## Installation
 
-### Voraussetzungen
+### Requirements
 
-- Linux-Host mit Docker und Docker Compose v2
-- Git und OpenSSL; für die Sicherungsskripte zusätzlich Python 3 und `flock`
-- Domain mit HTTPS-Reverse-Proxy und vorhandenem externen Docker-Netzwerk
+- Linux host with Docker and Docker Compose v2
+- Git and OpenSSL; backup scripts additionally require Python 3 and `flock`
+- A domain, HTTPS reverse proxy, and an existing external Docker network
 
-Die Shell-Beispiele sind für POSIX-Shells gedacht; unter Windows lassen sie sich über WSL oder Git Bash ausführen. Zugangsdaten und Sicherungen gehören in ein geschütztes Verzeichnis auf dem Server.
+Shell examples use POSIX syntax. Windows users can run them through WSL or Git Bash. Keep credentials and backups in a protected directory on the server.
 
-### Docker Compose mit HTTPS
+### Docker Compose with HTTPS
 
 ```sh
 git clone https://github.com/arumes31/seliworks.git
@@ -76,19 +76,19 @@ cd seliworks
 cp .env.example .env
 ```
 
-Vor dem Start die Werte in `.env` anpassen:
+Update `.env` before starting:
 
-| Variable                            | Bedeutung                                                                             |
-| ----------------------------------- | ------------------------------------------------------------------------------------- |
-| `APP_URL`                           | Öffentliche HTTPS-Adresse ohne zusätzlichen Pfad                                      |
-| `PROXY_NETWORK`                     | Bereits vorhandenes Netzwerk des Reverse-Proxys, zum Beispiel `npm_default`           |
-| `PROXY_ALIAS`                       | Interner Hostname der App; Standard `seliworks`                                       |
-| `TRUSTED_PROXY_CIDRS`               | Tatsächliche Proxy-Adressen beziehungsweise eng begrenzte Netze; keine globalen Netze |
-| `BOOTSTRAP_EMAIL`, `BOOTSTRAP_NAME` | Identität des ersten Administrators                                                   |
-| `BACKUP_DIR`                        | Verzeichnis für lokale Sicherungen; Standard `./backups`                              |
-| `SMTP_*`                            | Optionaler Rechnungsversand; leerer `SMTP_HOST` deaktiviert ihn                       |
+| Variable                            | Purpose                                                                   |
+| ----------------------------------- | ------------------------------------------------------------------------- |
+| `APP_URL`                           | Public HTTPS origin without an additional path                            |
+| `PROXY_NETWORK`                     | Existing reverse-proxy network, such as `npm_default`                     |
+| `PROXY_ALIAS`                       | Internal application hostname; defaults to `seliworks`                    |
+| `TRUSTED_PROXY_CIDRS`               | Actual proxy addresses or narrowly scoped networks; never global networks |
+| `BOOTSTRAP_EMAIL`, `BOOTSTRAP_NAME` | Identity of the initial administrator                                     |
+| `BACKUP_DIR`                        | Local backup directory; defaults to `./backups`                           |
+| `SMTP_*`                            | Optional invoice delivery; an empty `SMTP_HOST` disables it               |
 
-Weitere Vorgaben stehen in [.env.example](.env.example). Passwörter und Schlüssel werden als Dateien unter `.secrets/` bereitgestellt.
+See [.env.example](.env.example) for the complete settings. Passwords and keys are supplied as files under `.secrets/`.
 
 ```sh
 sh scripts/init-secrets.sh
@@ -102,34 +102,34 @@ docker compose up -d --wait app
 docker compose ps
 ```
 
-Mit `BOOTSTRAP_EMAIL` und dem privat aus `.secrets/bootstrap_password` gelesenen Passwort anmelden und das Passwort im Profil ändern. `bootstrap` erstellt nur den ersten Administrator. Migrationen und Benutzeranlage erfolgen ausdrücklich vor dem App-Start, nicht automatisch beim Start des Webservers.
+Log in with `BOOTSTRAP_EMAIL` and the password read privately from `.secrets/bootstrap_password`, then change the password in Profile. Bootstrap creates only the initial administrator. Migrations and initial user creation run explicitly before the application starts, never implicitly when the web server starts.
 
-### Nginx Proxy Manager und Netzwerk
+### Nginx Proxy Manager and networking
 
-In NPM einen Proxy Host für die konfigurierte Domain anlegen:
+Create an NPM Proxy Host for the configured domain:
 
-| Einstellung      | Wert                                              |
-| ---------------- | ------------------------------------------------- |
-| Forward Scheme   | `http`                                            |
-| Forward Hostname | `seliworks` beziehungsweise `PROXY_ALIAS`         |
-| Forward Port     | `16540`                                           |
-| Docker-Netzwerk  | Dasselbe externe Netzwerk wie `PROXY_NETWORK`     |
-| TLS              | Zertifikat für die Domain und HTTPS-Weiterleitung |
+| Setting          | Value                                                |
+| ---------------- | ---------------------------------------------------- |
+| Forward Scheme   | `http`                                               |
+| Forward Hostname | `seliworks`, or the configured `PROXY_ALIAS`         |
+| Forward Port     | `16540`                                              |
+| Docker network   | The same external network as `PROXY_NETWORK`         |
+| TLS              | A certificate for the domain, with HTTPS redirection |
 
-Der Proxy muss den ursprünglichen `Host` und `X-Forwarded-Proto` weiterreichen. Die Produktionskonfiguration veröffentlicht keinen App-Port auf dem Host. PostgreSQL liegt ausschließlich im internen Datenbanknetzwerk. Die vollständige Konfiguration steht in [compose.yaml](compose.yaml).
+The proxy must forward the original `Host` and `X-Forwarded-Proto` headers. Production Compose does not publish an application port on the host. PostgreSQL is attached only to the internal database network. See [compose.yaml](compose.yaml) for the full configuration.
 
-### Persistente Daten
+### Persistent storage
 
-Standardmäßig verwendet Compose die benannten Volumes `postgres-data` und `app-data`. Daten bleiben beim Neuerstellen der Container erhalten.
+Compose uses the named volumes `postgres-data` and `app-data` by default. Recreating containers preserves their data.
 
-Für eine **neue Installation** mit festen Hostpfaden, etwa unter `/container/seliworks/`, zuerst die Verzeichnisse anlegen:
+For a **new installation** with fixed host paths, such as `/container/seliworks/`, create the directories first:
 
 ```sh
 sudo install -d -m 700 /container/seliworks/postgres
 sudo install -d -m 700 -o 10001 -g 10001 /container/seliworks/data
 ```
 
-Dann im Installationsverzeichnis eine `compose.override.yaml` ergänzen. Compose berücksichtigt sie bei den oben gezeigten Befehlen automatisch:
+Add a `compose.override.yaml` in the installation directory. Compose automatically includes it in the commands above:
 
 ```yaml
 volumes:
@@ -147,15 +147,15 @@ volumes:
       device: /container/seliworks/data
 ```
 
-Bestehende Volumes werden dadurch nicht in die neuen Verzeichnisse verschoben. Ein späterer Wechsel benötigt eine geplante Datenmigration. `.env`, `.secrets/`, Compose-Konfiguration und Datensicherungen ebenfalls geschützt aufbewahren.
+This does not move existing volumes into those directories. Switching storage paths later requires a planned data migration. Also protect `.env`, `.secrets/`, Compose configuration, and backups.
 
-### Lokal ausprobieren
+### Local development environment
 
-Für lokale Entwicklung auf **jedem** Compose-Befehl beide Dateien angeben:
+Include both Compose files on **every** local command:
 
 ```sh
 cp .env.example .env
-# BOOTSTRAP_EMAIL und BOOTSTRAP_NAME in .env setzen.
+# Set BOOTSTRAP_EMAIL and BOOTSTRAP_NAME in .env.
 sh scripts/init-secrets.sh
 docker compose -f compose.yaml -f compose.dev.yaml build
 docker compose -f compose.yaml -f compose.dev.yaml up -d --wait postgres
@@ -164,12 +164,12 @@ docker compose -f compose.yaml -f compose.dev.yaml --profile tools run --rm boot
 docker compose -f compose.yaml -f compose.dev.yaml up -d --wait app
 ```
 
-Die App ist unter [localhost:16540](http://localhost:16540) erreichbar. [compose.dev.yaml](compose.dev.yaml) bindet App und Datenbank nur an Loopback und benötigt kein externes Proxy-Netzwerk. Diese HTTP-Konfiguration ist ausschließlich für lokale Entwicklung bestimmt.
+Open [localhost:16540](http://localhost:16540). The [development override](compose.dev.yaml) binds application and database ports to loopback and does not need an external proxy network. Its HTTP configuration is intended only for local development.
 
 <details>
-<summary>Optionale Demo-Daten in einer frischen Entwicklungsdatenbank</summary>
+<summary>Optional demo data in a fresh development database</summary>
 
-Den Bootstrap-Schritt überspringen und nach der Migration folgenden Befehl ausführen. Die Datenbank darf noch keine Benutzer enthalten:
+Skip bootstrap and run the following after migration. The database must not contain any users:
 
 ```sh
 openssl rand -hex 24 > .secrets/demo_password
@@ -178,15 +178,15 @@ docker compose -f compose.yaml -f compose.dev.yaml run --rm \
   -e DEMO_PASSWORD_FILE=/run/secrets/demo_password app demo
 ```
 
-Demo erstellt `demo@seliworks.local` und `worker@seliworks.local` mit dem erzeugten Passwort. Der Befehl wird im Produktionsmodus abgelehnt. Für weitere Versuche ein separates Compose-Projekt mit frischen Volumes verwenden.
+Demo creates `demo@seliworks.local` and `worker@seliworks.local` with the generated password. It is refused in production. Use a separate Compose project with fresh volumes for further disposable trials.
 
 </details>
 
-## Betrieb
+## Operations
 
 ### Updates
 
-Vor einem regulären Update eine passende Sicherung erstellen. Anschließend den Quellstand aktualisieren, bauen, migrieren und die App ersetzen:
+Create a matching backup before a routine update. Then update the source, build, migrate, and replace the application:
 
 ```sh
 git pull --ff-only
@@ -196,23 +196,23 @@ docker compose up -d --no-deps --wait app
 docker compose ps
 ```
 
-Die PWA übernimmt App-Updates automatisch, sobald dies ohne Verlust offener Formulare und laufender Anfragen möglich ist. Ein Hinweis bleibt sichtbar, wenn zunächst offene Eingaben gesichert werden müssen.
+The PWA applies application updates automatically when there are no unsaved forms or pending writes. A notice remains visible when unsaved input needs attention first.
 
-Vorgebaute Images werden unter [ghcr.io/arumes31/seliworks](https://github.com/arumes31/seliworks/pkgs/container/seliworks) für AMD64 und ARM64 veröffentlicht. Für reproduzierbare Installationen einen geprüften Digest verwenden und **App, Migrations- und Bootstrap-Service auf dasselbe Image setzen**. Ein Build von `main` erzeugt Commit-Tags; `latest` wird nur bei stabilen Versions-Releases aktualisiert.
+Prebuilt AMD64 and ARM64 images are published to [ghcr.io/arumes31/seliworks](https://github.com/arumes31/seliworks/pkgs/container/seliworks). Use a verified digest for reproducible installations, and configure **the application, migration, and bootstrap services to use the same image**. Builds from `main` receive commit tags; `latest` is updated only by stable version releases.
 
-### Sicherung und Wiederherstellung
+### Backup and recovery
 
-[scripts/backup.sh](scripts/backup.sh) erstellt eine zusammengehörige Sicherung aus Datenbank, privaten Dateien sowie `.env` und den Dateien unter `.secrets/`. Es stoppt die App kurz für einen konsistenten Stand und startet eine zuvor laufende App anschließend wieder. Laufende Arbeitszeiten bleiben in der Datenbank bestehen.
+[scripts/backup.sh](scripts/backup.sh) creates a matched backup of the database, private files, `.env`, and the files under `.secrets/`. It briefly stops the application for consistency, then restarts it if it was running. Recorded work clocks remain in the database.
 
 ```sh
 sudo sh scripts/backup.sh
 ```
 
-Die Installationsprüfung verlangt root-eigene Konfigurationsdateien mit passenden Zugriffsrechten. Lokale Sicherungen sind durch Dateirechte geschützt, **nicht verschlüsselt**. Vor einer Kopie auf ein externes Ziel die gesamte Sicherung einschließlich Schlüsselmaterial verschlüsseln.
+Installation checks require root-owned configuration files with appropriate permissions. Local backups are protected by file permissions, **not encryption**. Encrypt the complete backup, including key material, before copying it off-host.
 
-Eine Wiederherstellung erfolgt in einem separaten Compose-Projekt mit leerer Datenbank und leerem Datenvolume. [installation-backup.py](scripts/installation-backup.py) prüft beziehungsweise rekonstruiert die zugehörige Konfiguration; [restore.sh](scripts/restore.sh) stellt Datenbank und Dateien wieder her. Dabei müssen Proxy-Alias, Hostpfade und Secrets auf das separate Wiederherstellungsprojekt abgestimmt sein. Vor Freigabe Benutzer, laufende Zeiten, Sätze, Rechnungen und PDF-Downloads prüfen.
+Restore into a separate Compose project with an empty database and empty application volume. [installation-backup.py](scripts/installation-backup.py) verifies or reconstructs the matching configuration; [restore.sh](scripts/restore.sh) restores the database and files. Adjust proxy aliases, host paths, and secrets for the separate recovery project. Verify users, running timers, rates, invoices, and PDF downloads before admitting traffic.
 
-### Diagnose
+### Diagnostics
 
 ```sh
 docker compose ps
@@ -220,17 +220,17 @@ docker compose logs --tail=100 app
 curl --fail https://work.example.com/health/ready
 ```
 
-Die Health-URL an die eigene Domain anpassen. Anfragefehler enthalten eine serverseitige `request_id`, HTTP-Methode, Routenmuster und Fehlerklasse. Parameter, Anfrageinhalte, Zugangsdaten und rohe Datenbankfehler werden dabei nicht protokolliert. Die Request-ID verbindet API-Fehlermeldung und Serverlog.
+Replace the health-check hostname with your domain. Request failures include a server-generated `request_id`, HTTP method, route pattern, and error class. Parameters, request contents, credentials, and raw database errors are excluded. Use the request ID to correlate API failures with server logs.
 
-`LOG_LEVEL=debug` macht vom Client abgebrochene Anfragen sichtbar. Zeitüberschreitungen erscheinen als Warnung. Nach einer unterbrochenen schreibenden Anfrage zuerst den tatsächlichen Zustand aktualisieren, bevor derselbe Vorgang wiederholt wird.
+Temporarily set `LOG_LEVEL=debug` to inspect client-cancelled requests. Timeouts are logged as warnings. After an interrupted write, refresh the actual state before retrying the operation.
 
-Vor der ersten Rechnung Organisationsdaten, Steuereinstellungen, Stundensätze und Urlaubs-/Feiertagszuschläge konfigurieren.
+Configure organization details, tax settings, hourly rates, and vacation/public-holiday policies before issuing invoices.
 
-## Entwicklung
+## Development
 
-Das Backend ist in Go geschrieben, die Oberfläche in React und TypeScript. PostgreSQL liefert persistente Daten und Zeitstempel. Im Produktionscontainer liefert Go die gebauten Frontend-Dateien direkt aus; Node ist dort nicht erforderlich.
+The backend is written in Go, with a React and TypeScript frontend. PostgreSQL provides durable records and timestamps. The production container serves built frontend assets directly from Go; Node is not required at runtime.
 
-Die verbindlichen Versionen stehen in [go.mod](go.mod), [Dockerfile](Dockerfile), [compose.yaml](compose.yaml) und den [CI-Workflows](.github/workflows/ci.yml). Frontend-Abhängigkeiten sind in [package-lock.json](web/package-lock.json) festgeschrieben.
+Authoritative versions are pinned in [go.mod](go.mod), [Dockerfile](Dockerfile), [compose.yaml](compose.yaml), and the [CI workflow](.github/workflows/ci.yml). Frontend dependencies are locked in [package-lock.json](web/package-lock.json).
 
 ```sh
 cd web
@@ -241,30 +241,30 @@ go vet ./...
 go build -trimpath -o seliworks ./cmd/seliworks
 ```
 
-Für den direkten Start `DATABASE_URL` oder `DATABASE_URL_FILE`, `APP_URL`, `APP_ENV`, `DATA_DIR` und `STATIC_DIR` konfigurieren. Danach `./seliworks migrate`, `./seliworks bootstrap` und `./seliworks serve` ausführen. Bootstrap benötigt zusätzlich die Administratoridentität und `BOOTSTRAP_PASSWORD_FILE`; TOTP verwendet `TOTP_KEY_FILE`.
+For a direct runtime, configure `DATABASE_URL` or `DATABASE_URL_FILE`, `APP_URL`, `APP_ENV`, `DATA_DIR`, and `STATIC_DIR`. Run `./seliworks migrate`, `./seliworks bootstrap`, then `./seliworks serve`. Bootstrap also requires the administrator identity and `BOOTSTRAP_PASSWORD_FILE`; TOTP uses `TOTP_KEY_FILE`.
 
-| Verzeichnis                | Inhalt                                                             |
-| -------------------------- | ------------------------------------------------------------------ |
-| `cmd/seliworks/`           | Einstiegspunkt und Betriebsbefehle                                 |
-| `internal/app/`            | API, Authentifizierung, Zeiterfassung, Abrechnung und PDFs         |
-| `internal/app/migrations/` | Versionierte Datenbankmigrationen                                  |
-| `web/src/`                 | React-Oberfläche und Übersetzungen                                 |
-| `web/public/`              | PWA-Manifest, Service Worker und App-Symbole                       |
-| `scripts/`                 | Secrets, Datenbankinitialisierung, Sicherung und Wiederherstellung |
-| `.github/workflows/`       | Prüfungen, Veröffentlichung und Wiederherstellungstests            |
+| Directory                  | Contents                                                        |
+| -------------------------- | --------------------------------------------------------------- |
+| `cmd/seliworks/`           | Entry point and operational commands                            |
+| `internal/app/`            | API, authentication, time tracking, billing, and PDF generation |
+| `internal/app/migrations/` | Versioned database migrations                                   |
+| `web/src/`                 | React interface and translations                                |
+| `web/public/`              | PWA manifest, service worker, and application icons             |
+| `scripts/`                 | Secrets, database initialization, backup, and recovery          |
+| `.github/workflows/`       | Checks, publishing, and recovery verification                   |
 
-## Qualitätssicherung
+## Quality assurance
 
-| Workflow                       | Geprüfter Umfang                                                                                                                                                                   |
-| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| CI                             | Go-Formatierung und Build, `go vet`, TypeScript, Frontend-Build, Browserregressionen, PostgreSQL-Regressionen mit Race Detection, PDF-Seitenumbrüche, Compose- und Skriptprüfungen |
-| Security                       | Go-/npm-Abhängigkeiten, Secrets in der Git-Historie und Container-Schwachstellen; hohe und kritische Containerfunde blockieren die Veröffentlichung                                |
-| CodeQL                         | Go, JavaScript/TypeScript, Python und GitHub Actions                                                                                                                               |
-| Dependency review / Dependabot | Abhängigkeitsänderungen in PRs und regelmäßige Updates für Go, npm, Docker und Actions                                                                                             |
-| Publish container / Release    | Veröffentlichung erst nach erfolgreichen Prüfungen; Multiarch-Image, SBOM und Herkunftsnachweis, bei Versions-Tags zusätzlich GitHub Release                                       |
-| Nightly recovery QA            | Isolierte Compose-Installation, Migrationen, echte Server-Zeiterfassung, Neustarts und Wiederherstellung von Datenbank und privaten Dateien                                        |
-| GHCR cleanup                   | Manuelle Bereinigung alter, unreferenzierter Images; standardmäßig als Probelauf                                                                                                   |
+| Workflow                       | Coverage                                                                                                                                                                     |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CI                             | Go formatting/build and `go vet`, TypeScript and frontend build, browser regressions, PostgreSQL regressions with race detection, PDF pagination, Compose, and script checks |
+| Security                       | Go/npm dependencies, secrets in Git history, and container vulnerabilities; high and critical image findings block publication                                               |
+| CodeQL                         | Go, JavaScript/TypeScript, Python, and GitHub Actions                                                                                                                        |
+| Dependency review / Dependabot | Dependency changes in PRs and scheduled updates for Go, npm, Docker, and Actions                                                                                             |
+| Publish container / Release    | Gated publication, multiarch images, SBOMs, and provenance attestations; version tags additionally create GitHub Releases                                                    |
+| Nightly recovery QA            | Isolated Compose installation, migrations, real server time recording, restarts, and database/private-file restoration                                                       |
+| GHCR cleanup                   | Manual cleanup of old, unreferenced images; defaults to a dry run                                                                                                            |
 
-Die publizierten Regressionen liegen in `internal/app/*_test.go` und `web/test/`, soweit sie in [.gitignore](.gitignore) ausdrücklich freigegeben sind. Weitere lokale Tests, interne Dokumentation, Screenshots und generierte Prüfberichte werden nicht veröffentlicht. Der genaue CI-Umfang ist in den Workflows nachlesbar.
+Published regressions are included under `internal/app/*_test.go` and `web/test/` through explicit exceptions in [.gitignore](.gitignore). Additional local tests, internal documentation, screenshots, and generated reports are not published. The workflows define the exact hosted verification scope.
 
-Mobile Oberflächen werden mit virtuellen Handy-Ansichten geprüft. Eine Abnahme auf physischen Android- oder iPhone-Geräten ist damit nicht belegt.
+Mobile layouts are tested using virtual phone viewports. This does not establish acceptance on physical Android or iPhone devices.
