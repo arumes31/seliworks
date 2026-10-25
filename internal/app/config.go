@@ -37,10 +37,10 @@ func LoadConfig() (Config, error) {
 	if e != nil || u.Host == "" || u.User != nil || u.Path != "" && u.Path != "/" || u.RawQuery != "" || u.Fragment != "" {
 		return c, errors.New("APP_URL must be an absolute origin without credentials, query or path")
 	}
-	if u.Scheme != "https" && (c.Environment != "development" || u.Scheme != "http" || (u.Hostname() != "localhost" && u.Hostname() != "127.0.0.1" && u.Hostname() != "::1")) {
+	if u.Scheme != "https" && !c.insecureDevelopmentHTTP() {
 		return c, errors.New("APP_URL must use HTTPS; loopback HTTP is allowed only in development")
 	}
-	c.AppURL = strings.TrimRight(c.AppURL, "/")
+	c.AppURL = strings.TrimRight(u.String(), "/")
 	c.SMTPHost = os.Getenv("SMTP_HOST")
 	c.SMTPPort = envDefault("SMTP_PORT", "587")
 	c.SMTPUsername = os.Getenv("SMTP_USERNAME")
@@ -78,6 +78,20 @@ func LoadConfig() (Config, error) {
 	}
 	return c, nil
 }
+
+// Only explicit loopback development may issue cookies usable over HTTP.
+// Unknown, incomplete or invalid configurations keep the secure default.
+func (c Config) insecureDevelopmentHTTP() bool {
+	if c.Environment != "development" {
+		return false
+	}
+	u, err := url.Parse(c.AppURL)
+	if err != nil || u.Scheme != "http" || u.User != nil || (u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.Fragment != "" {
+		return false
+	}
+	return u.Hostname() == "localhost" || u.Hostname() == "127.0.0.1" || u.Hostname() == "::1"
+}
+
 func envDefault(k, d string) string {
 	if s := os.Getenv(k); s != "" {
 		return s

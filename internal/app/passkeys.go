@@ -133,7 +133,7 @@ func (a *App) authorizePasskey(r *http.Request, tx pgx.Tx, in passkeyAuthorizati
 }
 
 func (a *App) passkeyCookie(w http.ResponseWriter, value string, age int) {
-	http.SetCookie(w, &http.Cookie{Name: "seliworks_passkey", Value: value, Path: "/api/v1", HttpOnly: true, Secure: strings.HasPrefix(a.Config.AppURL, "https://"), SameSite: http.SameSiteStrictMode, MaxAge: age})
+	http.SetCookie(w, &http.Cookie{Name: "seliworks_passkey", Value: value, Path: "/api/v1", HttpOnly: true, Secure: !a.Config.insecureDevelopmentHTTP(), SameSite: http.SameSiteStrictMode, MaxAge: age})
 }
 
 func savePasskeyCeremony(r *http.Request, tx pgx.Tx, kind, name string, data *webauthn.SessionData) (string, error) {

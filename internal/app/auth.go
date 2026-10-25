@@ -202,7 +202,7 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 	a.writeMe(w, r, authContext{u, csrf, digest(raw)})
 }
 func (a *App) setCookie(w http.ResponseWriter, value string, age int) {
-	http.SetCookie(w, &http.Cookie{Name: "seliworks_session", Value: value, Path: "/", Secure: strings.HasPrefix(a.Config.AppURL, "https://"), HttpOnly: true, SameSite: http.SameSiteStrictMode, MaxAge: age})
+	http.SetCookie(w, &http.Cookie{Name: "seliworks_session", Value: value, Path: "/", Secure: !a.Config.insecureDevelopmentHTTP(), HttpOnly: true, SameSite: http.SameSiteStrictMode, MaxAge: age})
 }
 func (a *App) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

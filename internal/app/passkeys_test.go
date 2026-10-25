@@ -43,6 +43,7 @@ func TestPasskeysBrowser(t *testing.T) {
 		t.Fatal(err)
 	}
 	a.Config.AppURL = "http://localhost:" + strings.Split(listener.Addr().String(), ":")[1]
+	a.Config.Environment = "development"
 	server := httptest.NewUnstartedServer(a.Handler())
 	server.Listener.Close()
 	server.Listener = listener
