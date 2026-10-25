@@ -53,6 +53,20 @@ after(async () => {
   await new Promise((resolve) => server?.close(resolve));
 });
 
+test("production service worker is minified and versioned", async () => {
+  const source = await readFile(
+    new URL("../public/sw.js", import.meta.url),
+    "utf8",
+  );
+  const built = await readFile(resolve(root, "sw.js"), "utf8");
+  assert.ok(
+    Buffer.byteLength(built) < Buffer.byteLength(source) * 0.75,
+    "the published service worker should be substantially smaller than its source",
+  );
+  assert.match(built, /seliworks-shell-[a-f0-9]{20}/);
+  assert.doesNotMatch(built, /__BUILD_ID__|sourceMappingURL/);
+});
+
 for (const blocker of ["none", "dirty form", "pending write", "offline"]) {
   test(`real service worker update: ${blocker}`, async () => {
     const context = await browser.newContext();
