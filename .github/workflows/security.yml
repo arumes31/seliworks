@@ -40,7 +40,7 @@ jobs:
           go install github.com/zricethezav/gitleaks/v8@v8.30.1
           gitleaks git --redact --no-banner .
       - name: Reject committed local secrets and tooling
-        run: test -z "$(git ls-files -- .secrets .tools .env)"
+        run: test -z "$(git ls-files -- ':(glob)**/.secrets/**' ':(glob)**/.tools/**' ':(glob)**/.env')"
       - name: Audit locked frontend dependencies
         working-directory: web
         run: |

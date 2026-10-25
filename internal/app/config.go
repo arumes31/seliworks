@@ -40,6 +40,7 @@ func LoadConfig() (Config, error) {
 	if u.Scheme != "https" && !c.insecureDevelopmentHTTP() {
 		return c, errors.New("APP_URL must use HTTPS; loopback HTTP is allowed only in development")
 	}
+	u.Host = strings.ToLower(u.Host)
 	c.AppURL = strings.TrimRight(u.String(), "/")
 	c.SMTPHost = os.Getenv("SMTP_HOST")
 	c.SMTPPort = envDefault("SMTP_PORT", "587")
@@ -89,7 +90,7 @@ func (c Config) insecureDevelopmentHTTP() bool {
 	if err != nil || u.Scheme != "http" || u.User != nil || (u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.Fragment != "" {
 		return false
 	}
-	return u.Hostname() == "localhost" || u.Hostname() == "127.0.0.1" || u.Hostname() == "::1"
+	return strings.EqualFold(u.Hostname(), "localhost") || u.Hostname() == "127.0.0.1" || u.Hostname() == "::1"
 }
 
 func envDefault(k, d string) string {
