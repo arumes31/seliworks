@@ -125,9 +125,11 @@ Compose uses the named volumes `postgres-data` and `app-data` by default. Recrea
 For a **new installation** with fixed host paths, such as `/container/seliworks/`, create the directories first:
 
 ```sh
-sudo install -d -m 700 /container/seliworks/postgres
+sudo install -d -m 700 -o 70 -g 70 /container/seliworks/postgres
 sudo install -d -m 700 -o 10001 -g 10001 /container/seliworks/data
 ```
+
+The pinned Alpine PostgreSQL image uses UID/GID `70:70`; the application uses `10001:10001`. Recheck these IDs when changing image families.
 
 Add a `compose.override.yaml` in the installation directory. Compose automatically includes it in the commands above:
 
@@ -190,10 +192,10 @@ Create a matching backup before a routine update. Then update the source, build,
 
 ```sh
 git pull --ff-only
-docker compose build
-docker compose --profile tools run --rm migrate
-docker compose up -d --no-deps --wait app
-docker compose ps
+sudo docker compose build
+sudo docker compose --profile tools run --rm migrate
+sudo docker compose up -d --no-deps --wait app
+sudo docker compose ps
 ```
 
 The PWA applies application updates automatically when there are no unsaved forms or pending writes. A notice remains visible when unsaved input needs attention first.
@@ -204,19 +206,26 @@ Prebuilt AMD64 and ARM64 images are published to [ghcr.io/arumes31/seliworks](ht
 
 [scripts/backup.sh](scripts/backup.sh) creates a matched backup of the database, private files, `.env`, and the files under `.secrets/`. It briefly stops the application for consistency, then restarts it if it was running. Recorded work clocks remain in the database.
 
+Prepare the configuration permissions before the first backup, then run the backup as root:
+
 ```sh
+sudo chown root:root .env .secrets
+sudo chmod 640 .env
+sudo chmod 700 .secrets
+sudo find .secrets -maxdepth 1 -type f -exec chown root:root {} +
+sudo find .secrets -maxdepth 1 -type f -exec chmod 644 {} +
 sudo sh scripts/backup.sh
 ```
 
-Installation checks require root-owned configuration files with appropriate permissions. Local backups are protected by file permissions, **not encryption**. Encrypt the complete backup, including key material, before copying it off-host.
+The private `0700` parent directory protects secret files on the host; the files remain readable by the non-root container user through Docker's secret mounts. After this preparation, run Compose commands with `sudo` and edit `.env` with `sudoedit`. Installation checks require root-owned configuration files with these permissions. Local backups are protected by file permissions, **not encryption**. Encrypt the complete backup, including key material, before copying it off-host.
 
 Restore into a separate Compose project with an empty database and empty application volume. [installation-backup.py](scripts/installation-backup.py) verifies or reconstructs the matching configuration; [restore.sh](scripts/restore.sh) restores the database and files. Adjust proxy aliases, host paths, and secrets for the separate recovery project. Verify users, running timers, rates, invoices, and PDF downloads before admitting traffic.
 
 ### Diagnostics
 
 ```sh
-docker compose ps
-docker compose logs --tail=100 app
+sudo docker compose ps
+sudo docker compose logs --tail=100 app
 curl --fail https://work.example.com/health/ready
 ```
 
