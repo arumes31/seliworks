@@ -1,60 +1,245 @@
+<p align="center">
+  <img src="web/public/icon.svg" width="88" alt="SeliWorks">
+</p>
+
 # SeliWorks
 
-Self-hosted farm work recording: Go, PostgreSQL and a responsive React/TypeScript PWA. Start work, close the phone, return later, stop, then describe the work. PostgreSQL timestamps determine time; browser activity and application restarts do not stop a session.
+**Self-hosted time tracking, PDF timesheets, and customer billing for agricultural teams.**
 
-One deployment represents one billing organization, with any number of workers and customer farms. Defaults are Europe/Vienna, EUR, German with English selection, actual duration and no automatic breaks. Administrators configure separate vacation/public-holiday surcharges as a percentage or extra currency per hour. Customer charges are not payroll wages.
+[![CI](https://github.com/arumes31/seliworks/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/arumes31/seliworks/actions/workflows/ci.yml)
+[![Security](https://github.com/arumes31/seliworks/actions/workflows/security.yml/badge.svg?branch=main)](https://github.com/arumes31/seliworks/actions/workflows/security.yml)
+[![CodeQL](https://github.com/arumes31/seliworks/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/arumes31/seliworks/actions/workflows/codeql.yml)
 
-Administrators can delete stopped work from its details dialog after confirming the entry and entering a reason. Deleted work is excluded from operational lists, reports and totals; original evidence and the deletion audit remain in exports. Active invoice allocations must first be cancelled or reversed through the invoice workflow.
+Start work, put your phone away, and document the activity when you return. SeliWorks records time on the server: closing the browser or restarting the application does not end a running session. The responsive, installable PWA offers **German by default**, an English language option, and light and dark themes.
 
-Passkeys are available from Profile, with a setup reminder for accounts without one and a dedicated login button. Each account can name and manage up to 20 passkeys. Registration and removal require the current password and configured MFA; passkey login requires device user verification. Removing a passkey signs out other sessions. Operator password reset and invitation-based account recovery revoke existing passkeys. The relying-party domain and accepted origin come only from `APP_URL`: use a stable HTTPS hostname, or `http://localhost:<port>` for local passkey testing. Changing the hostname requires registering new passkeys. Password login remains available.
+Each installation represents one billing organization with multiple workers, administrators, and farms or customers. Defaults are **Europe/Vienna**, **EUR**, and actual elapsed time without automatic break deductions. Billing covers customer services; it is not payroll.
 
-## Run with Docker Compose
+[Features](#features) · [Installation](#installation) · [Operations](#operations) · [Development](#development) · [Quality assurance](#quality-assurance)
 
-Requirements: a Linux Docker host with Compose v2, an existing HTTPS reverse proxy and its external Docker network, DNS, and OpenSSL. PowerShell users can run the POSIX operational scripts through WSL or Git Bash. Keep secrets and backups outside synchronized/shared folders on the production host.
+## Features
+
+| Area                | Capabilities                                                                                                                                            |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Time tracking       | Start and stop work, pause for a specified duration or until resumed, record activities and descriptions, and apply additional time deductions          |
+| Farms and customers | Assign individual workers and administrators, or automatically include all current and future users                                                     |
+| Administration      | Edit complete entries, add breaks, correct times, and transfer work to another farm                                                                     |
+| Review              | Approve or reject entries; delete stopped work through a confirmation modal with a required reason                                                      |
+| Timesheets          | Download personal PDF timesheets; administrators can export one, several, or all workers with separate pages per person                                 |
+| Billing             | Hourly rates, separate vacation-day and public-holiday surcharges in percent or additional currency per hour, invoice PDFs, and optional email delivery |
+| Authentication      | Password login, optional authenticator-based MFA, and multiple named passkeys per account                                                               |
+
+### Roles and farm assignments
+
+Administrator and worker permissions are independent and can be combined. Administrators can assign farms to other administrators, including accounts without worker permission. Assignment does not grant permission to record work; that still requires the worker role.
+
+New farms default to **All users – including future users**. Choose **Selected users** to restrict assignments. Inherited assignments are managed on the farm and cannot be removed from an individual user. Existing explicit assignments survive migrations. Administrators retain organization-wide management access.
+
+### Corrections and transfers
+
+Open **Work entries → Details → Edit complete entry**. The **Farm / customer** selector appears at the top of the form; selecting another farm transfers the entry. Historical work can also be transferred after its existing owner loses worker permission.
+
+The original recording and original farm remain documented. Changes are audited and require fresh approval. Running work must be stopped before editing or deletion. Active invoice allocations block changes and must first be released through the invoice workflow. Deleted work disappears from operational lists and totals, while original evidence and the deletion reason remain in the audit export.
+
+### PDF timesheets
+
+- **Workers:** download their own timesheet from History.
+- **Administrators:** open the employee timesheet PDF export in Work entries and select one, several, or all people.
+- Both start and end dates are included, using the organization's timezone.
+- PDFs include completed work, gross duration, breaks, additional deductions, and net time. Entries crossing the selected period are clipped to its boundaries.
+- Each person starts on a new page. Long descriptions continue across pages, with separate totals for each person.
+
+Each export supports up to one year, 100 people, 2,000 entries, and 1 MB of entry text. Split larger exports by date or person. Timesheets are separate from customer invoices.
+
+### Passkeys and login
+
+In **Profile**, each account can register, name, and remove up to 20 passkeys. Accounts without a passkey receive a setup reminder; **Remind me later** postpones it by three to seven days. Password login remains available. The authenticator field appears only when required for login.
+
+Registration and removal require the current password and configured MFA. Passkey login requires device user verification. Removing a passkey signs out other sessions; operator password resets and invitation-based account recovery revoke existing passkeys.
+
+Passkeys are tied to the domain configured in `APP_URL`. Use a stable HTTPS hostname. Changing the domain requires registering new passkeys; `http://localhost:16540` is supported for local testing.
+
+## Installation
+
+### Requirements
+
+- Linux host with Docker and Docker Compose v2
+- Git and OpenSSL; backup scripts additionally require Python 3 and `flock`
+- A domain, HTTPS reverse proxy, and an existing external Docker network
+
+Shell examples use POSIX syntax. Windows users can run them through WSL or Git Bash. Keep credentials and backups in a protected directory on the server.
+
+### Docker Compose with HTTPS
 
 ```sh
+git clone https://github.com/arumes31/seliworks.git
+cd seliworks
 cp .env.example .env
-# Edit APP_URL, PROXY_NETWORK, TRUSTED_PROXY_CIDRS and administrator identity.
+```
+
+Update `.env` before starting:
+
+| Variable                            | Purpose                                                                   |
+| ----------------------------------- | ------------------------------------------------------------------------- |
+| `APP_URL`                           | Public HTTPS origin without an additional path                            |
+| `PROXY_NETWORK`                     | Existing reverse-proxy network, such as `npm_default`                     |
+| `PROXY_ALIAS`                       | Internal application hostname; defaults to `seliworks`                    |
+| `TRUSTED_PROXY_CIDRS`               | Actual proxy addresses or narrowly scoped networks; never global networks |
+| `BOOTSTRAP_EMAIL`, `BOOTSTRAP_NAME` | Identity of the initial administrator                                     |
+| `BACKUP_DIR`                        | Local backup directory; defaults to `./backups`                           |
+| `SMTP_*`                            | Optional invoice delivery; an empty `SMTP_HOST` disables it               |
+
+See [.env.example](.env.example) for the complete settings. Passwords and keys are supplied as files under `.secrets/`.
+
+```sh
 sh scripts/init-secrets.sh
 sudo chown 10001:10001 backups
 chmod 700 backups
 docker compose build
-docker compose up -d postgres
+docker compose up -d --wait postgres
 docker compose --profile tools run --rm migrate
 docker compose --profile tools run --rm bootstrap
-docker compose up -d app
+docker compose up -d --wait app
 docker compose ps
 ```
 
-Configure the existing HTTPS proxy to forward your hostname to `seliworks:16540` on the selected external network (or your configured `PROXY_ALIAS`). Forward the original Host and X-Forwarded-Proto headers. Set TRUSTED_PROXY_CIDRS to the exact proxy addresses; keep PostgreSQL private and do not publish its port in production. Log in with `BOOTSTRAP_EMAIL` and the generated password read privately from `.secrets/bootstrap_password`, then change the password in Profile. Bootstrap refuses to create a second initial administrator.
+Log in with `BOOTSTRAP_EMAIL` and the password read privately from `.secrets/bootstrap_password`, then change the password in Profile. Bootstrap creates only the initial administrator. Migrations and initial user creation run explicitly before the application starts, never implicitly when the web server starts.
 
-For local development, use the override on **every** Compose invocation:
+### Nginx Proxy Manager and networking
+
+Create an NPM Proxy Host for the configured domain:
+
+| Setting          | Value                                                |
+| ---------------- | ---------------------------------------------------- |
+| Forward Scheme   | `http`                                               |
+| Forward Hostname | `seliworks`, or the configured `PROXY_ALIAS`         |
+| Forward Port     | `16540`                                              |
+| Docker network   | The same external network as `PROXY_NETWORK`         |
+| TLS              | A certificate for the domain, with HTTPS redirection |
+
+The proxy must forward the original `Host` and `X-Forwarded-Proto` headers. Production Compose does not publish an application port on the host. PostgreSQL is attached only to the internal database network. See [compose.yaml](compose.yaml) for the full configuration.
+
+### Persistent storage
+
+Compose uses the named volumes `postgres-data` and `app-data` by default. Recreating containers preserves their data.
+
+For a **new installation** with fixed host paths, such as `/container/seliworks/`, create the directories first:
+
+```sh
+sudo install -d -m 700 -o 70 -g 70 /container/seliworks/postgres
+sudo install -d -m 700 -o 10001 -g 10001 /container/seliworks/data
+```
+
+The pinned Alpine PostgreSQL image uses UID/GID `70:70`; the application uses `10001:10001`. Recheck these IDs when changing image families.
+
+Add a `compose.override.yaml` in the installation directory. Compose automatically includes it in the commands above:
+
+```yaml
+volumes:
+  postgres-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /container/seliworks/postgres
+  app-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /container/seliworks/data
+```
+
+This does not move existing volumes into those directories. Switching storage paths later requires a planned data migration. Also protect `.env`, `.secrets/`, Compose configuration, and backups.
+
+### Local development environment
+
+Include both Compose files on **every** local command:
 
 ```sh
 cp .env.example .env
+# Set BOOTSTRAP_EMAIL and BOOTSTRAP_NAME in .env.
 sh scripts/init-secrets.sh
 docker compose -f compose.yaml -f compose.dev.yaml build
-docker compose -f compose.yaml -f compose.dev.yaml up -d postgres
+docker compose -f compose.yaml -f compose.dev.yaml up -d --wait postgres
 docker compose -f compose.yaml -f compose.dev.yaml --profile tools run --rm migrate
 docker compose -f compose.yaml -f compose.dev.yaml --profile tools run --rm bootstrap
-docker compose -f compose.yaml -f compose.dev.yaml up -d app
+docker compose -f compose.yaml -f compose.dev.yaml up -d --wait app
 ```
 
-Open [localhost:16540](http://localhost:16540). The override deliberately permits insecure cookies only for local development and binds HTTP/database ports to loopback. No external proxy network is needed. For optional disposable demo records, **skip bootstrap** on a fresh development database and run the following before starting the app. Demo requires no existing users; use a separate project with fresh volumes if you already bootstrapped:
+Open [localhost:16540](http://localhost:16540). The [development override](compose.dev.yaml) binds application and database ports to loopback and does not need an external proxy network. Its HTTP configuration is intended only for local development.
+
+<details>
+<summary>Optional demo data in a fresh development database</summary>
+
+Skip bootstrap and run the following after migration. The database must not contain any users:
 
 ```sh
-# Generate the development password locally; do not reuse any production password.
 openssl rand -hex 24 > .secrets/demo_password
 docker compose -f compose.yaml -f compose.dev.yaml run --rm \
   -v "$PWD/.secrets/demo_password:/run/secrets/demo_password:ro" \
   -e DEMO_PASSWORD_FILE=/run/secrets/demo_password app demo
 ```
 
-Demo creates `demo@seliworks.local` and `worker@seliworks.local` with that supplied password. It is refused in production. Do not run demo on a real organization database.
+Demo creates `demo@seliworks.local` and `worker@seliworks.local` with the generated password. It is refused in production. Use a separate Compose project with fresh volumes for further disposable trials.
 
-## Build from source
+</details>
 
-Go 1.27.2, Node 24.22.0 and PostgreSQL 18.6 are the pinned baseline. Node builds frontend assets; production serves them directly from Go.
+## Operations
+
+### Updates
+
+Create a matching backup before a routine update. Then update the source, build, migrate, and replace the application:
+
+```sh
+git pull --ff-only
+sudo docker compose build
+sudo docker compose --profile tools run --rm migrate
+sudo docker compose up -d --no-deps --wait app
+sudo docker compose ps
+```
+
+The PWA applies application updates automatically when there are no unsaved forms or pending writes. A notice remains visible when unsaved input needs attention first.
+
+Prebuilt AMD64 and ARM64 images are published to [ghcr.io/arumes31/seliworks](https://github.com/arumes31/seliworks/pkgs/container/seliworks). Use a verified digest for reproducible installations, and configure **the application, migration, and bootstrap services to use the same image**. Builds from `main` receive commit tags; `latest` is updated only by stable version releases.
+
+### Backup and recovery
+
+[scripts/backup.sh](scripts/backup.sh) creates a matched backup of the database, private files, `.env`, and the files under `.secrets/`. It briefly stops the application for consistency, then restarts it if it was running. Recorded work clocks remain in the database.
+
+Prepare the configuration permissions before the first backup, then run the backup as root:
+
+```sh
+sudo chown root:root .env .secrets
+sudo chmod 640 .env
+sudo chmod 700 .secrets
+sudo find .secrets -maxdepth 1 -type f -exec chown root:root {} +
+sudo find .secrets -maxdepth 1 -type f -exec chmod 644 {} +
+sudo sh scripts/backup.sh
+```
+
+The private `0700` parent directory protects secret files on the host; the files remain readable by the non-root container user through Docker's secret mounts. After this preparation, run Compose commands with `sudo` and edit `.env` with `sudoedit`. Installation checks require root-owned configuration files with these permissions. Local backups are protected by file permissions, **not encryption**. Encrypt the complete backup, including key material, before copying it off-host.
+
+Restore into a separate Compose project with an empty database and empty application volume. [installation-backup.py](scripts/installation-backup.py) verifies or reconstructs the matching configuration; [restore.sh](scripts/restore.sh) restores the database and files. Adjust proxy aliases, host paths, and secrets for the separate recovery project. Verify users, running timers, rates, invoices, and PDF downloads before admitting traffic.
+
+### Diagnostics
+
+```sh
+sudo docker compose ps
+sudo docker compose logs --tail=100 app
+curl --fail https://work.example.com/health/ready
+```
+
+Replace the health-check hostname with your domain. Request failures include a server-generated `request_id`, HTTP method, route pattern, and error class. Parameters, request contents, credentials, and raw database errors are excluded. Use the request ID to correlate API failures with server logs.
+
+Temporarily set `LOG_LEVEL=debug` to inspect client-cancelled requests. Timeouts are logged as warnings. After an interrupted write, refresh the actual state before retrying the operation.
+
+Configure organization details, tax settings, hourly rates, and vacation/public-holiday policies before issuing invoices.
+
+## Development
+
+The backend is written in Go, with a React and TypeScript frontend. PostgreSQL provides durable records and timestamps. The production container serves built frontend assets directly from Go; Node is not required at runtime.
+
+Authoritative versions are pinned in [go.mod](go.mod), [Dockerfile](Dockerfile), [compose.yaml](compose.yaml), and the [CI workflow](.github/workflows/ci.yml). Frontend dependencies are locked in [package-lock.json](web/package-lock.json).
 
 ```sh
 cd web
@@ -65,31 +250,30 @@ go vet ./...
 go build -trimpath -o seliworks ./cmd/seliworks
 ```
 
-For direct runtime use, configure `DATABASE_URL` or `DATABASE_URL_FILE`, `APP_URL`, `APP_ENV`, `DATA_DIR` and `STATIC_DIR`. Run `./seliworks migrate`, `./seliworks bootstrap`, then `./seliworks serve`. Bootstrap requires `BOOTSTRAP_EMAIL`, `BOOTSTRAP_NAME` and `BOOTSTRAP_PASSWORD_FILE` and refuses to create a second initial administrator.
+For a direct runtime, configure `DATABASE_URL` or `DATABASE_URL_FILE`, `APP_URL`, `APP_ENV`, `DATA_DIR`, and `STATIC_DIR`. Run `./seliworks migrate`, `./seliworks bootstrap`, then `./seliworks serve`. Bootstrap also requires the administrator identity and `BOOTSTRAP_PASSWORD_FILE`; TOTP uses `TOTP_KEY_FILE`.
 
-## Repository contents
+| Directory                  | Contents                                                        |
+| -------------------------- | --------------------------------------------------------------- |
+| `cmd/seliworks/`           | Entry point and operational commands                            |
+| `internal/app/`            | API, authentication, time tracking, billing, and PDF generation |
+| `internal/app/migrations/` | Versioned database migrations                                   |
+| `web/src/`                 | React interface and translations                                |
+| `web/public/`              | PWA manifest, service worker, and application icons             |
+| `scripts/`                 | Secrets, database initialization, backup, and recovery          |
+| `.github/workflows/`       | Checks, publishing, and recovery verification                   |
 
-This public repository contains application source, database migrations, frontend assets, dependency locks, deployment/backup scripts and GitHub automation. Full test suites, internal documentation, plans and generated reports/screenshots remain local and are intentionally excluded by `.gitignore`. Local credentials, backups, dependencies and build output are also excluded.
+## Quality assurance
 
-## GitHub automation
+| Workflow                       | Coverage                                                                                                                                                                     |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CI                             | Go formatting/build and `go vet`, TypeScript and frontend build, browser regressions, PostgreSQL regressions with race detection, PDF pagination, Compose, and script checks |
+| Security                       | Go/npm dependencies, secrets in Git history, and container vulnerabilities; high and critical image findings block publication                                               |
+| CodeQL                         | Go, JavaScript/TypeScript, Python, and GitHub Actions                                                                                                                        |
+| Dependency review / Dependabot | Dependency changes in PRs and scheduled updates for Go, npm, Docker, and Actions                                                                                             |
+| Publish container / Release    | Gated publication, multiarch images, SBOMs, and provenance attestations; version tags additionally create GitHub Releases                                                    |
+| Nightly recovery QA            | Isolated Compose installation, migrations, real server time recording, restarts, and database/private-file restoration                                                       |
+| GHCR cleanup                   | Manual cleanup of old, unreferenced images; defaults to a dry run                                                                                                            |
 
-- **CI** checks formatting, module integrity, Go vet/build, TypeScript, frontend formatting/build, Compose configuration, the non-root image and deployment/workflow lint. It does not claim to run unpublished unit/integration/browser test files.
-- **Security** scans Go/frontend dependencies, Git history for credentials, and the built container. High/critical container findings block publication. **CodeQL** analyzes Go, TypeScript and Actions; **Dependency review** checks pull requests. Dependabot updates Go, npm, Docker and Actions weekly.
-- **Publish container** is available through Actions → Run workflow on `main`. CI, security and CodeQL must succeed before publishing `ghcr.io/arumes31/seliworks` for AMD64/ARM64, with commit tags, an SBOM and provenance attestations.
-- Pushing a version tag such as `v1.0.0` runs the same publication gates and creates a GitHub Release with generated notes and the exact image digest. Stable version tags also update `latest`; prereleases do not. No tag or release is created automatically.
-- **Nightly recovery QA** creates disposable runner-only Compose projects and fresh credentials, verifies repeated migrations, records real server work, restarts app/PostgreSQL, then backs up and restores into fresh database/private-file volumes. It does not replace full application suites or physical-device checks.
-- **GHCR cleanup** is manual and defaults to dry-run. It considers only unreferenced, untagged manifests older than 30 days, protects retained multi-architecture/attestation children and preserves tagged versions for rollback.
+Published regressions are included under `internal/app/*_test.go` and `web/test/` through explicit exceptions in [.gitignore](.gitignore). Additional local tests, internal documentation, screenshots, and generated reports are not published. The workflows define the exact hosted verification scope.
 
-Actions use verified full commit pins and limited job permissions. No production host or external SMTP credentials are required. The small workflow-lint adapter preserves GitHub's current `$/` self-repository syntax while the pinned Actionlint release lacks support (upstream issue #711); it normalizes only equivalent local-workflow references for linting and does not disable rules.
-
-Set organization identity, billing rates, special-day policies and tax treatment before invoicing. Percentage and extra-currency-per-hour vacation/public-holiday policies are configured separately. German is the default interface language; English is selectable.
-
-Production rollout and physical Android/iPhone installation checks still require verification. Keep database/private-document backups and required encryption keys protected outside the deployment host and verify recovery before using real business data.
-
-## Request diagnostics
-
-Unexpected request failures are JSON logs with the server-generated `request_id`, HTTP `method`, registered `route` pattern, error class (`type`) and Go `error_type`. Route parameters, query strings, request bodies, credentials and raw database error messages are excluded. Use the request ID returned by the API to correlate a report with its server event.
-
-`context_canceled` is logged at debug level only when the request context was also canceled by the caller. Internal cancellations and other failures remain errors, even after the caller disconnects. `deadline_exceeded` is a warning; the API still returns the same `503 UNAVAILABLE` response and requires reconciliation before retrying a mutation. Set `LOG_LEVEL=debug` temporarily when investigating canceled requests, then return to the normal `info` level.
-
-New farms default to all workers, including accounts created later. Administrators can instead select individual workers when creating or editing a farm. Existing farms retain their explicit assignments during migration. All-worker assignments are inherited and cannot be removed from an individual worker; change the farm to selected workers to restrict access.
+Mobile layouts are tested using virtual phone viewports. This does not establish acceptance on physical Android or iPhone devices.
