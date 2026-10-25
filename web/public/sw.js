@@ -7,7 +7,10 @@ self.addEventListener("install", (event) =>
       .open(CACHE)
       .then((cache) =>
         cache.addAll(["/icon.svg", "/manifest.webmanifest", "/offline.html"]),
-      ),
+      )
+      // Older clients may be unable to request activation. Each page still
+      // defers its reload while a form is dirty or a write is pending.
+      .then(() => self.skipWaiting()),
   ),
 );
 self.addEventListener("activate", (event) =>
