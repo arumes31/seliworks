@@ -386,7 +386,9 @@ for (const width of [390, 1280])
         })
         .click();
       const dialog = page.getByRole("dialog");
-      await dialog.locator('[name="farm_id"]').selectOption("new");
+      await dialog
+        .getByRole("combobox", { name: "Betrieb / Kunde", exact: true })
+        .selectOption("new");
       await dialog
         .locator('[name="reason"]')
         .fill("Falscher Betrieb bei Erfassung");

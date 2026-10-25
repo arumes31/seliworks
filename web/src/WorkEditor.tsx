@@ -114,7 +114,7 @@ export function WorkEditor({
       {admin && (
         <>
           <div className="notice">{t("adminEditHint")}</div>
-          <Field label={t("farm")}>
+          <Field label={t("farm")} hint={t("farmTransferHint")}>
             <select name="farm_id" required defaultValue={entry.farm_id}>
               {farms
                 .filter((f) => f.active || f.id === entry.farm_id)
@@ -124,7 +124,6 @@ export function WorkEditor({
                   </option>
                 ))}
             </select>
-            <small className="muted">{t("farmTransferHint")}</small>
           </Field>
           <Field label={t("worker")}>
             <select name="worker_id" required defaultValue={entry.worker_id}>
