@@ -84,7 +84,7 @@ func (a *App) editWork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var valid bool
-	e = tx.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM users WHERE id=$1 AND is_worker) AND EXISTS(SELECT 1 FROM farms WHERE id=$2) AND ($3='' OR EXISTS(SELECT 1 FROM activities WHERE id=NULLIF($3,'')::uuid))`, in.WorkerID, in.FarmID, in.ActivityID).Scan(&valid)
+	e = tx.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM users WHERE id=$1 AND (is_worker OR id=$4)) AND EXISTS(SELECT 1 FROM farms WHERE id=$2) AND ($3='' OR EXISTS(SELECT 1 FROM activities WHERE id=NULLIF($3,'')::uuid))`, in.WorkerID, in.FarmID, in.ActivityID, previousWorker).Scan(&valid)
 	if e != nil {
 		handleError(w, r, e)
 		return

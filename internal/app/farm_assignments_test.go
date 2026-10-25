@@ -208,3 +208,112 @@ func TestFarmAssignmentsMigrationPreservesExistingAccess(t *testing.T) {
 		t.Fatalf("migration changed access: %v %v", valid, err)
 	}
 }
+
+func TestFarmAssignmentsAdministrators(t *testing.T) {
+	a, admin := invitationSecurityFixture(t)
+	ctx := context.Background()
+	other := farmWorker(t, a, "other-admin")
+	if _, err := a.DB.Exec(ctx, `UPDATE users SET is_admin=true,is_worker=false WHERE id=$1`, other.ID); err != nil {
+		t.Fatal(err)
+	}
+	other.IsAdmin, other.IsWorker = true, false
+	farm := invitationSecurityOK(t, deleteWorkRequest(t, a, admin, "POST", "/admin/farms", map[string]any{"name": "Selected admin", "assign_all_workers": false, "worker_ids": []string{other.ID}}, true))
+	id := farm["id"].(string)
+	var revision string
+	if err := a.DB.QueryRow(ctx, `SELECT `+workerAssignmentRevision+` FROM users u WHERE id=$1`, other.ID).Scan(&revision); err != nil {
+		t.Fatal(err)
+	}
+	list := invitationSecurityOK(t, deleteWorkRequest(t, a, admin, "GET", "/admin/workers", nil, true))
+	found := false
+	for _, item := range list["items"].([]any) {
+		u := item.(map[string]any)
+		found = found || u["id"] == other.ID
+		if u["id"] == other.ID && (len(u["farm_ids"].([]any)) != 1 || u["farm_ids"].([]any)[0] != id) {
+			t.Fatalf("admin assignment missing: %v", u)
+		}
+	}
+	if !found {
+		t.Fatal("assigned admin missing from user list")
+	}
+	invitationSecurityOK(t, deleteWorkRequest(t, a, admin, "PUT", "/admin/workers/"+other.ID+"/farms", map[string]any{"farm_ids": []string{}, "expected_assignment_revision": revision}, true))
+	if w := deleteWorkRequest(t, a, admin, "PUT", "/admin/workers/"+other.ID+"/farms", map[string]any{"farm_ids": []string{id}, "expected_assignment_revision": revision}, true); w.Code != 409 {
+		t.Fatalf("stale admin assignment accepted: %d %s", w.Code, w.Body.String())
+	}
+	invitationSecurityOK(t, deleteWorkRequest(t, a, admin, "PUT", "/admin/workers/"+other.ID+"/farms", map[string]any{"farm_ids": []string{id}}, true))
+	if w := farmStart(t, a, other, id); w.Code != 403 {
+		t.Fatalf("assignment granted worker permission: %d", w.Code)
+	}
+	everyone := invitationSecurityOK(t, deleteWorkRequest(t, a, admin, "POST", "/admin/farms", map[string]any{"name": "Everyone"}, true))
+	future := invitationSecurityOK(t, deleteWorkRequest(t, a, admin, "POST", "/admin/workers", map[string]any{"name": "Future admin", "email": "future-admin@example.test", "is_admin": true, "is_worker": false}, true))
+	list = invitationSecurityOK(t, deleteWorkRequest(t, a, admin, "GET", "/admin/workers", nil, true))
+	found = false
+	for _, item := range list["items"].([]any) {
+		u := item.(map[string]any)
+		found = found || u["id"] == future["id"]
+		if u["id"] == future["id"] && (len(u["farm_ids"].([]any)) != 1 || u["farm_ids"].([]any)[0] != everyone["id"]) {
+			t.Fatalf("future admin inheritance missing: %v", u)
+		}
+	}
+	if !found {
+		t.Fatal("future admin missing from user list")
+	}
+	worker := farmWorker(t, a, "ordinary-worker")
+	if w := deleteWorkRequest(t, a, worker, "PUT", "/admin/workers/"+other.ID+"/farms", map[string]any{"farm_ids": []string{}}, true); w.Code != 403 {
+		t.Fatalf("worker can assign admin: %d", w.Code)
+	}
+}
+
+func TestFarmAssignmentsWorkTransferPreservesEvidence(t *testing.T) {
+	for _, former := range []bool{false, true} {
+		t.Run(map[bool]string{false: "worker", true: "former-worker-admin"}[former], func(t *testing.T) {
+			a, admin := invitationSecurityFixture(t)
+			ctx := context.Background()
+			id, original := deleteWorkEntry(t, a, admin, "APPROVED")
+			if former {
+				if _, err := a.DB.Exec(ctx, `UPDATE users SET is_worker=false WHERE id=$1`, admin.ID); err != nil {
+					t.Fatal(err)
+				}
+			}
+			farm := invitationSecurityOK(t, deleteWorkRequest(t, a, admin, "POST", "/admin/farms", map[string]any{"name": "Transfer destination", "assign_all_workers": false}, true))
+			var activity string
+			if err := a.DB.QueryRow(ctx, `SELECT activity_id::text FROM work_sessions WHERE id=$1`, id).Scan(&activity); err != nil {
+				t.Fatal(err)
+			}
+			body := map[string]any{"version": 1, "worker_id": admin.ID, "farm_id": farm["id"], "activity_id": activity, "effective_start": "2026-01-02T09:00:00Z", "effective_stop": "2026-01-02T10:00:00Z", "description": "Transferred work", "day_type": "REGULAR", "reason": "Correct wrong farm"}
+			saved := invitationSecurityOK(t, deleteWorkRequest(t, a, admin, "PATCH", "/admin/work-sessions/"+id, body, true))
+			if saved["farm_id"] != farm["id"] || saved["state"] != "SUBMITTED" || saved["worker_id"] != admin.ID {
+				t.Fatalf("transfer failed: %v", saved)
+			}
+			var recorded string
+			if err := a.DB.QueryRow(ctx, `SELECT recorded_farm_id::text FROM work_sessions WHERE id=$1`, id).Scan(&recorded); err != nil || recorded != original {
+				t.Fatalf("original evidence lost: %s %v", recorded, err)
+			}
+			if w := deleteWorkRequest(t, a, admin, "PATCH", "/admin/work-sessions/"+id, body, true); w.Code != 409 {
+				t.Fatalf("stale transfer: %d", w.Code)
+			}
+			other := farmWorker(t, a, "admin-only-target")
+			if _, err := a.DB.Exec(ctx, `UPDATE users SET is_admin=true,is_worker=false WHERE id=$1`, other.ID); err != nil {
+				t.Fatal(err)
+			}
+			body["version"], body["worker_id"] = saved["version"], other.ID
+			if w := deleteWorkRequest(t, a, admin, "PATCH", "/admin/work-sessions/"+id, body, true); w.Code != 422 {
+				t.Fatalf("new non-worker owner accepted: %d", w.Code)
+			}
+			var invoice string
+			if err := a.DB.QueryRow(ctx, `INSERT INTO invoices(farm_id,state,number,from_date,to_date,period_start,period_stop,timezone,currency,issuer,customer,net_cents,tax_cents,total_cents,created_by,issued_at,due_on) VALUES($1,'issued','TRANSFER-1','2026-01-01','2026-02-01','2026-01-01Z','2026-02-01Z','Europe/Vienna','EUR','{}','{}',100,0,100,$2,clock_timestamp(),'2026-02-15') RETURNING id::text`, farm["id"], admin.ID).Scan(&invoice); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := a.DB.Exec(ctx, `INSERT INTO invoice_allocations(invoice_id,session_id,source_version,started_at,stopped_at,active,net_us,net_cents,snapshot) VALUES($1,$2,2,'2026-01-02T09:00:00Z','2026-01-02T10:00:00Z',true,3600000000,100,'{}')`, invoice, id); err != nil {
+				t.Fatal(err)
+			}
+			body["worker_id"], body["farm_id"] = admin.ID, original
+			if w := deleteWorkRequest(t, a, admin, "PATCH", "/admin/work-sessions/"+id, body, true); w.Code != 409 {
+				t.Fatalf("billed work moved: %d %s", w.Code, w.Body.String())
+			}
+			var current string
+			if err := a.DB.QueryRow(ctx, `SELECT farm_id::text FROM work_sessions WHERE id=$1`, id).Scan(&current); err != nil || current != farm["id"] {
+				t.Fatalf("failed transfer changed farm: %s %v", current, err)
+			}
+		})
+	}
+}

@@ -726,14 +726,15 @@ export function Management({
                             {t("invite")}
                           </button>
                         )}
-                        {kind === "workers" && entity.is_worker && (
-                          <button
-                            className="text-button"
-                            onClick={() => setAssigning(entity)}
-                          >
-                            {t("assignFarms")}
-                          </button>
-                        )}
+                        {kind === "workers" &&
+                          (entity.is_worker || entity.is_admin) && (
+                            <button
+                              className="text-button"
+                              onClick={() => setAssigning(entity)}
+                            >
+                              {t("assignFarms")}
+                            </button>
+                          )}
                         <button
                           className="button secondary small-button"
                           onClick={() => setEditing(entity)}
@@ -991,7 +992,7 @@ function FarmAssignments({
       </p>
       <div hidden={all}>
         {workers
-          .filter((worker) => worker.is_worker)
+          .filter((worker) => worker.is_worker || worker.is_admin)
           .map((worker) => (
             <label className="check" key={worker.id}>
               <input

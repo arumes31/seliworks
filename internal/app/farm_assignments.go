@@ -36,7 +36,7 @@ func lockFarmAssignments(ctx context.Context, tx pgx.Tx) error {
 
 // Includes inheritance mode so a switch from all to selected invalidates an
 // employee editor even if the employee still has access to the same farms.
-const workerAssignmentRevision = `md5(coalesce((SELECT string_agg(f.id::text||':'||f.assign_all_workers::text,',' ORDER BY f.id) FROM farms f WHERE u.is_worker AND (f.assign_all_workers OR EXISTS(SELECT 1 FROM worker_farms wf WHERE wf.farm_id=f.id AND wf.worker_id=u.id))),''))`
+const workerAssignmentRevision = `md5(coalesce((SELECT string_agg(f.id::text||':'||f.assign_all_workers::text,',' ORDER BY f.id) FROM farms f WHERE (u.is_worker OR u.is_admin) AND (f.assign_all_workers OR EXISTS(SELECT 1 FROM worker_farms wf WHERE wf.farm_id=f.id AND wf.worker_id=u.id))),''))`
 
 const farmWithWorkers = `SELECT to_jsonb(f)||jsonb_build_object('worker_ids',coalesce((SELECT jsonb_agg(worker_id ORDER BY worker_id) FROM worker_farms WHERE farm_id=f.id),'[]'::jsonb)) FROM farms f WHERE f.id=$1`
 
@@ -74,9 +74,9 @@ func (a *App) saveFarm(update bool) http.HandlerFunc {
 		err = lockFarmAssignments(r.Context(), tx)
 		if err == nil && in.WorkerIDs != nil {
 			var count int
-			err = tx.QueryRow(r.Context(), `SELECT count(*) FROM users WHERE id=ANY($1::uuid[]) AND is_worker`, *in.WorkerIDs).Scan(&count)
+			err = tx.QueryRow(r.Context(), `SELECT count(*) FROM users WHERE id=ANY($1::uuid[]) AND (is_worker OR is_admin)`, *in.WorkerIDs).Scan(&count)
 			if err == nil && count != len(*in.WorkerIDs) {
-				err = problem(422, "VALIDATION", "Choose existing workers")
+				err = problem(422, "VALIDATION", "Choose existing workers or administrators")
 			}
 		}
 		id := r.PathValue("id")

@@ -326,13 +326,15 @@ export const en = {
   newRecord: "New record",
   manualEntry: "Add manual entry",
   assignFarms: "Assigned farms",
-  workerAssignment: "Worker assignment",
-  allWorkersAssignment: "All workers – including future workers",
-  selectedWorkersAssignment: "Selected workers",
+  farmTransferHint:
+    "Choose another farm to transfer this entry. The original farm remains in the record; the entry requires approval again.",
+  workerAssignment: "Assign users",
+  allWorkersAssignment: "All users – including future users",
+  selectedWorkersAssignment: "Selected users",
   allWorkersAssignmentHint:
-    "Current and future workers can start work for this farm automatically.",
+    "Assigns this farm to current and future employees and administrators. Recording work also requires worker permission.",
   selectedWorkersAssignmentHint:
-    "Only the selected workers can start work for this farm. You can change this assignment later.",
+    "Assigns this farm to the selected employees and administrators. Recording work also requires worker permission.",
   hourlyRate: "Hourly rate",
   effectiveFrom: "Effective from",
   effectiveTo: "Effective until (optional)",
@@ -751,13 +753,15 @@ export const de: Record<Key, string> = {
   newRecord: "Neuer Eintrag",
   manualEntry: "Manuellen Eintrag erstellen",
   assignFarms: "Zugewiesene Betriebe",
-  workerAssignment: "Mitarbeitende zuweisen",
-  allWorkersAssignment: "Alle Mitarbeitenden – auch zukünftige",
-  selectedWorkersAssignment: "Einzelne Mitarbeitende",
+  farmTransferHint:
+    "Wähle einen anderen Betrieb, um diesen Eintrag umzubuchen. Der ursprüngliche Betrieb bleibt dokumentiert; der Eintrag muss erneut genehmigt werden.",
+  workerAssignment: "Benutzer zuweisen",
+  allWorkersAssignment: "Alle Benutzer – auch zukünftige",
+  selectedWorkersAssignment: "Einzelne Benutzer",
   allWorkersAssignmentHint:
-    "Bestehende und zukünftige Mitarbeitende können für diesen Betrieb automatisch Arbeit starten.",
+    "Weist den Betrieb bestehenden und zukünftigen Mitarbeitenden und Administratoren zu. Für die Zeiterfassung ist zusätzlich die Mitarbeitendenrolle erforderlich.",
   selectedWorkersAssignmentHint:
-    "Nur ausgewählte Mitarbeitende können für diesen Betrieb Arbeit starten. Die Zuweisung kannst du später ändern.",
+    "Weist den Betrieb ausgewählten Mitarbeitenden und Administratoren zu. Für die Zeiterfassung ist zusätzlich die Mitarbeitendenrolle erforderlich.",
   hourlyRate: "Stundensatz",
   effectiveFrom: "Gültig ab",
   effectiveTo: "Gültig bis (optional)",
