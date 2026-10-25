@@ -380,7 +380,10 @@ for (const width of [390, 1280])
         .getByRole("button", { name: "Details anzeigen", exact: true })
         .click();
       await page
-        .getByRole("button", { name: "Eintrag vollständig bearbeiten", exact: true })
+        .getByRole("button", {
+          name: "Eintrag vollständig bearbeiten",
+          exact: true,
+        })
         .click();
       const dialog = page.getByRole("dialog");
       await dialog.locator('[name="farm_id"]').selectOption("new");
