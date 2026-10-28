@@ -2219,3 +2219,16 @@ html[data-hidden="true"] .sun {
   text-align: center;
   user-select: all;
 }
+
+.activity-selection {
+  min-width: 0;
+}
+.activity-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: 0.5rem;
+}
+.activity-options .check {
+  min-height: 44px;
+  overflow-wrap: anywhere;
+}

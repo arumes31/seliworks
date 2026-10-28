@@ -86,6 +86,9 @@ export interface Work {
   farm_name: string;
   activity_id: string;
   activity_name: string;
+  activity_ids?: string[];
+  activity_names?: string[];
+  additional_activities?: string;
   started_at: string;
   stopped_at: string | null;
   effective_start: string;

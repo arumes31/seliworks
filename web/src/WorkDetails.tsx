@@ -198,7 +198,17 @@ export function WorkDetails({
         />
       ) : (
         <>
-          <h3>{entry.activity_name || t("noActivity")}</h3>
+          <h3>
+            {entry.activity_names?.join(", ") ||
+              entry.activity_name ||
+              t("noActivity")}
+          </h3>
+          {entry.additional_activities && (
+            <div>
+              <strong>{t("additionalActivities")}</strong>
+              <p className="preserve-lines">{entry.additional_activities}</p>
+            </div>
+          )}
           <p className="preserve-lines">{entry.description}</p>
           {entry.location && <p className="muted">{entry.location}</p>}
           {dayType && (

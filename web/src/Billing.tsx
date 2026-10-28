@@ -317,7 +317,7 @@ export function Reports() {
           <select value={group} onChange={(e) => setGroup(e.target.value)}>
             {(["worker", "farm", "activity", "day"] as const).map((g) => (
               <option value={g} key={g}>
-                {t(g)}
+                {t(g === "activity" ? "primaryActivity" : g)}
               </option>
             ))}
           </select>
@@ -360,7 +360,11 @@ export function Reports() {
                 <thead>
                   <tr>
                     <th>
-                      {t(group as "worker" | "farm" | "activity" | "day")}
+                      {t(
+                        group === "activity"
+                          ? "primaryActivity"
+                          : (group as "worker" | "farm" | "day"),
+                      )}
                     </th>
                     <th>{t("gross")}</th>
                     <th>{t("breaks")}</th>

@@ -139,9 +139,9 @@ func (a *App) serveTimesheet(w http.ResponseWriter, r *http.Request, admin bool)
 		}
 		ids = selected
 	}
-	rows, err := tx.Query(r.Context(), `SELECT s.worker_id::text,f.name,coalesce(c.name,''),s.description,s.state,coalesce(s.day_type,''),s.deduction_reason,s.effective_start,s.effective_stop,s.additional_deduction_us,
+	rows, err := tx.Query(r.Context(), `SELECT s.worker_id::text,f.name,concat_ws(E'\n',array_to_string(wa.names,', '),nullif(s.additional_activities,'')),s.description,s.state,coalesce(s.day_type,''),s.deduction_reason,s.effective_start,s.effective_stop,s.additional_deduction_us,
  coalesce((SELECT jsonb_agg(jsonb_build_object('started_at',b.started_at,'stopped_at',b.stopped_at)) FROM work_break_intervals b WHERE b.session_id=s.id),'[]'::jsonb)
- FROM work_sessions s JOIN farms f ON f.id=s.farm_id LEFT JOIN activities c ON c.id=s.activity_id
+ FROM work_sessions s JOIN farms f ON f.id=s.farm_id `+workActivitiesJoin+`
  WHERE s.worker_id=ANY($1::uuid[]) AND s.state NOT IN ('RUNNING','DELETED') AND s.effective_stop IS NOT NULL AND s.effective_start<$3 AND s.effective_stop>$2
  ORDER BY s.effective_start,s.id LIMIT 2001`, ids, start, stop)
 	if err != nil {

@@ -434,9 +434,9 @@ func (a *App) reject(w http.ResponseWriter, r *http.Request) {
 }
 func (a *App) manual(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		WorkerID    string    `json:"worker_id"`
-		FarmID      string    `json:"farm_id"`
-		ActivityID  string    `json:"activity_id"`
+		WorkerID string `json:"worker_id"`
+		FarmID   string `json:"farm_id"`
+		workActivityInput
 		Start       time.Time `json:"started_at"`
 		Stop        time.Time `json:"stopped_at"`
 		Description string    `json:"description"`
@@ -468,9 +468,15 @@ func (a *App) manual(w http.ResponseWriter, r *http.Request) {
 	if e == nil && in.Stop.After(now) {
 		e = problem(422, "FUTURE_WORK", "Manual work cannot end in the future")
 	}
+	if e == nil {
+		e = in.resolve(r.Context(), tx, "", true)
+	}
 	var id string
 	if e == nil {
 		e = tx.QueryRow(r.Context(), `INSERT INTO work_sessions(worker_id,farm_id,activity_id,started_at,stopped_at,effective_start,effective_stop,state,description,created_by,updated_at) VALUES($1,$2,$3,$4,$5,$4,$5,'SUBMITTED',$6,$7,$8) RETURNING id::text`, in.WorkerID, in.FarmID, in.ActivityID, in.Start, in.Stop, in.Description, actor(r).ID, now).Scan(&id)
+	}
+	if e == nil {
+		e = in.save(r.Context(), tx, id)
 	}
 	if e == nil {
 		e = a.audit(r.Context(), tx, actor(r).ID, "work.manual", id, nil, in)

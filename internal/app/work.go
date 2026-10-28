@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const sessionSelect = `SELECT to_jsonb(s)||jsonb_build_object('worker_name',u.name,'farm_name',f.name,'activity_name',coalesce(c.name,''),'recorded_farm_name',(SELECT name FROM farms WHERE id=s.recorded_farm_id),'recorded_worker_name',(SELECT name FROM users WHERE id=s.recorded_worker_id),'server_now',sample.now,'gross_us',(extract(epoch FROM (coalesce(s.effective_stop,sample.now)-s.effective_start))*1000000)::bigint,'elapsed_us',(extract(epoch FROM (coalesce(s.effective_stop,sample.now)-s.effective_start))*1000000)::bigint-coalesce(b.us,0)-s.additional_deduction_us,'break_us',coalesce(b.us,0),'net_us',(extract(epoch FROM (coalesce(s.effective_stop,sample.now)-s.effective_start))*1000000)::bigint-coalesce(b.us,0)-s.additional_deduction_us,'breaks',coalesce(b.items,'[]'::jsonb),'active_pause',CASE WHEN s.state='RUNNING' THEN (SELECT jsonb_build_object('id',p.id,'started_at',p.started_at,'planned_stop',p.planned_stop) FROM work_pauses p WHERE p.session_id=s.id AND p.resumed_at IS NULL AND (p.planned_stop IS NULL OR p.planned_stop>sample.now)) ELSE NULL END) FROM work_sessions s JOIN users u ON u.id=s.worker_id JOIN farms f ON f.id=s.farm_id LEFT JOIN activities c ON c.id=s.activity_id CROSS JOIN (SELECT clock_timestamp() AS now) sample LEFT JOIN LATERAL (SELECT sum((extract(epoch FROM (least(stopped_at,coalesce(s.effective_stop,sample.now))-started_at))*1000000)::bigint)::bigint AS us,jsonb_agg(jsonb_build_object('started_at',started_at,'stopped_at',least(stopped_at,coalesce(s.effective_stop,sample.now))) ORDER BY started_at) AS items FROM work_break_intervals WHERE session_id=s.id) b ON true `
+const sessionSelect = `SELECT to_jsonb(s)||jsonb_build_object('worker_name',u.name,'farm_name',f.name,'activity_name',coalesce(c.name,''),'activity_ids',coalesce(wa.ids,'{}'::text[]),'activity_names',coalesce(wa.names,'{}'::text[]),'recorded_farm_name',(SELECT name FROM farms WHERE id=s.recorded_farm_id),'recorded_worker_name',(SELECT name FROM users WHERE id=s.recorded_worker_id),'server_now',sample.now,'gross_us',(extract(epoch FROM (coalesce(s.effective_stop,sample.now)-s.effective_start))*1000000)::bigint,'elapsed_us',(extract(epoch FROM (coalesce(s.effective_stop,sample.now)-s.effective_start))*1000000)::bigint-coalesce(b.us,0)-s.additional_deduction_us,'break_us',coalesce(b.us,0),'net_us',(extract(epoch FROM (coalesce(s.effective_stop,sample.now)-s.effective_start))*1000000)::bigint-coalesce(b.us,0)-s.additional_deduction_us,'breaks',coalesce(b.items,'[]'::jsonb),'active_pause',CASE WHEN s.state='RUNNING' THEN (SELECT jsonb_build_object('id',p.id,'started_at',p.started_at,'planned_stop',p.planned_stop) FROM work_pauses p WHERE p.session_id=s.id AND p.resumed_at IS NULL AND (p.planned_stop IS NULL OR p.planned_stop>sample.now)) ELSE NULL END) FROM work_sessions s JOIN users u ON u.id=s.worker_id JOIN farms f ON f.id=s.farm_id LEFT JOIN activities c ON c.id=s.activity_id ` + workActivitiesJoin + ` CROSS JOIN (SELECT clock_timestamp() AS now) sample LEFT JOIN LATERAL (SELECT sum((extract(epoch FROM (least(stopped_at,coalesce(s.effective_stop,sample.now))-started_at))*1000000)::bigint)::bigint AS us,jsonb_agg(jsonb_build_object('started_at',started_at,'stopped_at',least(stopped_at,coalesce(s.effective_stop,sample.now))) ORDER BY started_at) AS items FROM work_break_intervals WHERE session_id=s.id) b ON true `
 
 func (a *App) session(ctx context.Context, q querier, id string) (map[string]any, error) {
 	var raw []byte
@@ -379,8 +379,8 @@ type BreakInput struct {
 	StoppedAt time.Time `json:"stopped_at"`
 }
 type DetailsInput struct {
-	Version         int64        `json:"version"`
-	ActivityID      string       `json:"activity_id"`
+	Version int64 `json:"version"`
+	workActivityInput
 	Description     string       `json:"description"`
 	Location        string       `json:"location"`
 	NonBillable     bool         `json:"non_billable"`
@@ -424,14 +424,8 @@ func (a *App) details(w http.ResponseWriter, r *http.Request) {
 		handleError(w, r, e)
 		return
 	}
-	var valid bool
-	e = tx.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM activities WHERE id=$1 AND active)`, in.ActivityID).Scan(&valid)
-	if e != nil {
+	if e = in.resolve(r.Context(), tx, id, true); e != nil {
 		handleError(w, r, e)
-		return
-	}
-	if !valid {
-		fail(w, r, 422, "ACTIVITY_REQUIRED", "Choose an active activity")
 		return
 	}
 	before, e := a.session(r.Context(), tx, id)
@@ -448,6 +442,9 @@ func (a *App) details(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		_, e = tx.Exec(r.Context(), `INSERT INTO breaks(session_id,started_at,stopped_at) VALUES($1,$2,$3)`, id, b.StartedAt, b.StoppedAt)
+	}
+	if e == nil {
+		e = in.save(r.Context(), tx, id)
 	}
 	var v map[string]any
 	if e == nil {

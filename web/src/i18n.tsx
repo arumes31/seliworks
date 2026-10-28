@@ -231,6 +231,13 @@ export const en = {
     "Choose your farm, then get going. Add the details when you finish.",
   farm: "Farm / customer",
   activity: "Activity",
+  multipleActivitiesHint: "Select one or more activities (up to 50).",
+  primaryActivity: "Primary activity (hourly rate)",
+  primaryActivityHint:
+    "The primary activity determines the hourly rate and activity reports. Work time is counted once.",
+  additionalActivities: "Additional activities",
+  additionalActivitiesHint:
+    "Optional free text, up to 1,000 characters. Included in timesheets and invoice details.",
   description: "What work did you do?",
   location: "Field / location (optional)",
   submit: "Save & submit for review",
@@ -655,6 +662,14 @@ export const de: Record<Key, string> = {
     "Betrieb wählen und loslegen. Die Details erfasst du nach der Arbeit.",
   farm: "Betrieb / Kunde",
   activity: "Tätigkeit",
+  multipleActivitiesHint:
+    "Eine oder mehrere Tätigkeiten auswählen (maximal 50).",
+  primaryActivity: "Haupttätigkeit (Stundensatz)",
+  primaryActivityHint:
+    "Die Haupttätigkeit bestimmt den Stundensatz und die Auswertung nach Tätigkeit. Die Arbeitszeit zählt einmal.",
+  additionalActivities: "Weitere Tätigkeiten",
+  additionalActivitiesHint:
+    "Optionaler Freitext, maximal 1.000 Zeichen. Wird in Zeitnachweisen und Rechnungsdetails übernommen.",
   description: "Was hast du gearbeitet?",
   location: "Feld / Ort (optional)",
   submit: "Speichern & zur Prüfung senden",

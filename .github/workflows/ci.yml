@@ -52,7 +52,7 @@ jobs:
           npm run build
           npx --no-install playwright install --with-deps chromium
       - name: Verify account-security revocation with PostgreSQL and race detection
-        run: go test -tags integration -race ./internal/app -run '^Test(InvitationSecurity|GermanActivitiesMigration|DeleteWork|Passkeys|FarmAssignments|Timesheet)' -count=1 -v
+        run: go test -tags integration -race ./internal/app -run '^Test(InvitationSecurity|GermanActivitiesMigration|DeleteWork|Passkeys|FarmAssignments|Timesheet|WorkActivities)' -count=1 -v
   source:
     name: Source build and static checks
     runs-on: ubuntu-24.04
@@ -92,6 +92,8 @@ jobs:
           SELIWORKS_BROWSER=firefox node --test test/updates.browser.mjs
           node --test test/delete-work.browser.mjs test/passkeys.browser.mjs test/farm-assignments.browser.mjs
           node --test test/timesheet.browser.mjs
+          node --test test/work-activities.browser.mjs
+          SELIWORKS_BROWSER=firefox node --test test/work-activities.browser.mjs
       - name: Build Go application
         run: go build -trimpath -o /tmp/seliworks ./cmd/seliworks
       - name: Verify cookie security and HTTPS configuration

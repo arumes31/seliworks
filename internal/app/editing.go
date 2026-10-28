@@ -10,10 +10,10 @@ import (
 // and financial snapshots stay intact; every completed edit requires fresh review.
 func (a *App) editWork(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		Version         int64        `json:"version"`
-		WorkerID        string       `json:"worker_id"`
-		FarmID          string       `json:"farm_id"`
-		ActivityID      string       `json:"activity_id"`
+		Version  int64  `json:"version"`
+		WorkerID string `json:"worker_id"`
+		FarmID   string `json:"farm_id"`
+		workActivityInput
 		Start           time.Time    `json:"effective_start"`
 		Stop            time.Time    `json:"effective_stop"`
 		Description     string       `json:"description"`
@@ -83,6 +83,10 @@ func (a *App) editWork(w http.ResponseWriter, r *http.Request) {
 		handleError(w, r, versionConflict())
 		return
 	}
+	if e = in.resolve(r.Context(), tx, id, false); e != nil {
+		handleError(w, r, e)
+		return
+	}
 	var valid bool
 	e = tx.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM users WHERE id=$1 AND (is_worker OR id=$4)) AND EXISTS(SELECT 1 FROM farms WHERE id=$2) AND ($3='' OR EXISTS(SELECT 1 FROM activities WHERE id=NULLIF($3,'')::uuid))`, in.WorkerID, in.FarmID, in.ActivityID, previousWorker).Scan(&valid)
 	if e != nil {
@@ -115,6 +119,9 @@ func (a *App) editWork(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		_, e = tx.Exec(r.Context(), `INSERT INTO breaks(session_id,started_at,stopped_at) VALUES($1,$2,$3)`, id, b.StartedAt, b.StoppedAt)
+	}
+	if e == nil {
+		e = in.save(r.Context(), tx, id)
 	}
 	var after map[string]any
 	if e == nil {
