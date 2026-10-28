@@ -33,15 +33,16 @@ type invoiceParty struct {
 	InvoiceAppendix bool   `json:"invoice_appendix"`
 }
 type invoiceItem struct {
-	SessionID   string        `json:"session_id"`
-	Description string        `json:"description"`
-	Worker      string        `json:"worker_name"`
-	Activity    string        `json:"activity_name"`
-	Start       time.Time     `json:"started_at"`
-	Stop        time.Time     `json:"stopped_at"`
-	NetUS       int64         `json:"net_us"`
-	Net         string        `json:"net"`
-	Pricing     PriceSnapshot `json:"pricing"`
+	ActivityDetails string        `json:"activity_details,omitempty"`
+	SessionID       string        `json:"session_id"`
+	Description     string        `json:"description"`
+	Worker          string        `json:"worker_name"`
+	Activity        string        `json:"activity_name"`
+	Start           time.Time     `json:"started_at"`
+	Stop            time.Time     `json:"stopped_at"`
+	NetUS           int64         `json:"net_us"`
+	Net             string        `json:"net"`
+	Pricing         PriceSnapshot `json:"pricing"`
 }
 type invoiceDocument struct {
 	ID           string               `json:"id"`
@@ -241,21 +242,21 @@ func (a *App) createInvoice(w http.ResponseWriter, r *http.Request) {
 		if err = tx.QueryRow(ctx, `SELECT to_jsonb(f) FROM farms f WHERE id=$1 FOR UPDATE`, in.FarmID).Scan(&customerRaw); err != nil {
 			return nil, err
 		}
-		rows, err := tx.Query(ctx, `SELECT w.id::text,w.version,w.effective_start,w.effective_stop,w.description,u.name,ac.name,p.snapshot FROM work_sessions w JOIN users u ON u.id=w.worker_id JOIN activities ac ON ac.id=w.activity_id JOIN approvals p ON p.session_id=w.id AND p.source_version=w.version WHERE w.farm_id=$1 AND w.state='APPROVED' AND NOT w.non_billable AND w.effective_start<$3 AND w.effective_stop>$2 ORDER BY w.id FOR UPDATE OF w`, in.FarmID, start, stop)
+		rows, err := tx.Query(ctx, `SELECT s.id::text,s.version,s.effective_start,s.effective_stop,s.description,u.name,ac.name,concat_ws(E'\n',CASE WHEN cardinality(wa.names)>1 THEN array_to_string(wa.names,', ') END,nullif(s.additional_activities,'')),p.snapshot FROM work_sessions s JOIN users u ON u.id=s.worker_id JOIN activities ac ON ac.id=s.activity_id JOIN approvals p ON p.session_id=s.id AND p.source_version=s.version `+workActivitiesJoin+` WHERE s.farm_id=$1 AND s.state='APPROVED' AND NOT s.non_billable AND s.effective_start<$3 AND s.effective_stop>$2 ORDER BY s.id FOR UPDATE OF s`, in.FarmID, start, stop)
 		if err != nil {
 			return nil, err
 		}
 		type source struct {
-			id                            string
-			version                       int64
-			start, stop                   time.Time
-			description, worker, activity string
-			pricing                       []byte
+			id                                             string
+			version                                        int64
+			start, stop                                    time.Time
+			description, worker, activity, activityDetails string
+			pricing                                        []byte
 		}
 		sources := []source{}
 		for rows.Next() {
 			var s source
-			if err = rows.Scan(&s.id, &s.version, &s.start, &s.stop, &s.description, &s.worker, &s.activity, &s.pricing); err != nil {
+			if err = rows.Scan(&s.id, &s.version, &s.start, &s.stop, &s.description, &s.worker, &s.activity, &s.activityDetails, &s.pricing); err != nil {
 				break
 			}
 			s.start, s.stop = s.start.UTC(), s.stop.UTC()
@@ -329,7 +330,7 @@ func (a *App) createInvoice(w http.ResponseWriter, r *http.Request) {
 				if e != nil {
 					return nil, e
 				}
-				item := invoiceItem{SessionID: s.id, Description: s.description, Worker: s.worker, Activity: s.activity, Start: part.Start, Stop: part.Stop, NetUS: net, Net: moneyString(cents), Pricing: pricing}
+				item := invoiceItem{ActivityDetails: s.activityDetails, SessionID: s.id, Description: s.description, Worker: s.worker, Activity: s.activity, Start: part.Start, Stop: part.Stop, NetUS: net, Net: moneyString(cents), Pricing: pricing}
 				raw, e := json.Marshal(item)
 				if e != nil {
 					return nil, e

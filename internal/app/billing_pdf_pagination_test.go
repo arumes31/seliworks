@@ -102,6 +102,21 @@ func TestInvoicePDFMissingGlyphsWrap(t *testing.T) {
 	}
 }
 
+func TestInvoicePDFMultipleActivityText(t *testing.T) {
+	d := paginationInvoice(t)
+	d.Items = d.Items[:1]
+	d.Items[0].ActivityDetails = "ACTIVITYSTART\n" + strings.Repeat("Weitere Taetigkeit\n", 90) + "ACTIVITYEND"
+	raw, err := renderInvoicePDF(d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pages := invoicePageStreams(t, raw)
+	if pdfMarkerPage(t, pages, "ACTIVITYSTART") >= pdfMarkerPage(t, pages, "ACTIVITYEND") {
+		t.Fatal("additional activities did not continue across pages")
+	}
+	writePaginationArtifact(t, "multiple-activities", raw)
+}
+
 func paginationInvoice(t *testing.T) invoiceDocument {
 	t.Helper()
 	number := "QA-PAGINATION-2026"

@@ -543,7 +543,11 @@ export function History({
                 <div className="date-block">
                   <span>{date(entry.started_at)}</span>
                   <strong>{entry.farm_name}</strong>
-                  <small>{entry.activity_name || t("complete")}</small>
+                  <small>
+                    {entry.activity_names?.join(", ") ||
+                      entry.activity_name ||
+                      t("complete")}
+                  </small>
                 </div>
                 <div>
                   <strong>{hours(entry.net_us || entry.elapsed_us)}</strong>

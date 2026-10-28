@@ -317,7 +317,7 @@ export function Reports() {
           <select value={group} onChange={(e) => setGroup(e.target.value)}>
             {(["worker", "farm", "activity", "day"] as const).map((g) => (
               <option value={g} key={g}>
-                {t(g)}
+                {t(g === "activity" ? "primaryActivity" : g)}
               </option>
             ))}
           </select>

@@ -91,6 +91,9 @@ func renderInvoicePDF(d invoiceDocument) ([]byte, error) {
 			fontSize = 9
 			lines = append(lines, invoicePDFLine{fontSize, 5, item.Start.In(loc).Format("02.01.2006 15:04 -07:00") + " → " + item.Stop.In(loc).Format("02.01.2006 15:04 -07:00")})
 			lines = append(lines, invoicePDFLine{fontSize, 5, item.Description})
+			if item.ActivityDetails != "" {
+				lines = append(lines, invoicePDFLine{fontSize, 5, item.ActivityDetails})
+			}
 			if p := item.Pricing.SpecialDayPolicy; p != nil {
 				label := "Urlaubstag / Vacation day"
 				if p.DayType == "HOLIDAY" {

@@ -101,3 +101,17 @@ func TestTimesheetPDFEmployeeSections(t *testing.T) {
 	pdfMarkerPage(t, pages, "Keine beendeten Arbeitseinträge in diesem Zeitraum.")
 	writePaginationArtifact(t, "employees", raw)
 }
+
+func TestTimesheetPDFLongActivities(t *testing.T) {
+	d := timesheetDocument{Worker: "Worker", Timezone: "Europe/Vienna", Language: "de", Items: []timesheetEntry{{Farm: "Farm", Activity: "ACTIVITYSTART\n" + strings.Repeat("Weitere Taetigkeit\n", 90) + "ACTIVITYEND", Description: "DESCRIPTIONAFTER", State: "SUBMITTED", NetUS: 3600000000}}}
+	raw, err := renderTimesheetPDF(d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pages := invoicePageStreams(t, raw)
+	if pdfMarkerPage(t, pages, "ACTIVITYSTART") >= pdfMarkerPage(t, pages, "ACTIVITYEND") {
+		t.Fatal("activity text truncated instead of continued")
+	}
+	pdfMarkerPage(t, pages, "DESCRIPTIONAFTER")
+	writePaginationArtifact(t, "timesheet-activities", raw)
+}

@@ -1,3 +1,4 @@
+import { WorkActivities } from "./WorkActivities";
 import { useEffect, useState } from "react";
 
 import { ArrowRight, Clock3, Plus, Square } from "lucide-react";
@@ -417,7 +418,11 @@ export function Entries({
                       <strong>{entry.worker_name}</strong>
                     </td>
                     <td>{entry.farm_name}</td>
-                    <td>{entry.activity_name || "—"}</td>
+                    <td>
+                      {entry.activity_names?.join(", ") ||
+                        entry.activity_name ||
+                        "—"}
+                    </td>
                     <td>{date(entry.started_at)}</td>
                     <td className="numeric">
                       {hours(entry.net_us || entry.elapsed_us)}
@@ -522,6 +527,8 @@ export function Entries({
                 worker_id: form.get("worker_id"),
                 farm_id: form.get("farm_id"),
                 activity_id: form.get("activity_id"),
+                activity_ids: form.getAll("activity_ids"),
+                additional_activities: form.get("additional_activities"),
                 started_at: formInstant(form, "started_at"),
                 stopped_at: formInstant(form, "stopped_at"),
                 description: form.get("description"),
@@ -535,7 +542,6 @@ export function Entries({
               [
                 ["worker_id", "worker", workers],
                 ["farm_id", "farm", farms],
-                ["activity_id", "activity", activities],
               ] as const
             ).map(([name, label, items]) => (
               <Field label={t(label)} key={name}>
@@ -551,6 +557,7 @@ export function Entries({
                 </select>
               </Field>
             ))}
+            <WorkActivities activities={activities} />
             <LocalTimeField label={t("startTime")} name="started_at" />
             <LocalTimeField label={t("stopTime")} name="stopped_at" />
             <Field label={t("description")}>

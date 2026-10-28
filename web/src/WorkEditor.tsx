@@ -4,6 +4,7 @@ import { api, formInstant } from "./api";
 import type { Break, DayType, Entity, Work } from "./api";
 import { useI18n } from "./i18n";
 import { ActionForm, Field } from "./ui";
+import { WorkActivities } from "./WorkActivities";
 import { LocalTimeField } from "./LocalTimeField";
 
 export function WorkEditor({
@@ -75,6 +76,8 @@ export function WorkEditor({
     const body = {
       version,
       activity_id: form.get("activity_id"),
+      activity_ids: form.getAll("activity_ids"),
+      additional_activities: form.get("additional_activities"),
       description: form.get("description"),
       location: form.get("location"),
       non_billable: form.get("non_billable") === "on",
@@ -153,22 +156,7 @@ export function WorkEditor({
           </div>
         </>
       )}
-      <Field label={t("activity")}>
-        <select
-          name="activity_id"
-          required
-          defaultValue={entry.activity_id || ""}
-        >
-          <option value="">{t("select")}</option>
-          {activities
-            .filter((a) => a.active || a.id === entry.activity_id)
-            .map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-        </select>
-      </Field>
+      <WorkActivities activities={activities} entry={entry} />
       <Field label={t("description")}>
         <textarea
           name="description"

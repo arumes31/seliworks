@@ -18,7 +18,7 @@ var businessExportTables = []struct{ name, projection string }{
 	{"organization", `to_jsonb(t)-'id'`},
 	{"users", `to_jsonb(t)-'password_hash'`},
 	{"farms", `to_jsonb(t)`}, {"worker_farms", `to_jsonb(t)`}, {"activities", `to_jsonb(t)`},
-	{"work_sessions", `to_jsonb(t)`}, {"work_pauses", `to_jsonb(t)`}, {"breaks", `to_jsonb(t)`},
+	{"work_sessions", `to_jsonb(t)`}, {"work_session_activities", `to_jsonb(t)`}, {"work_pauses", `to_jsonb(t)`}, {"breaks", `to_jsonb(t)`},
 	{"corrections", `to_jsonb(t)`}, {"approvals", `to_jsonb(t)`}, {"rates", `to_jsonb(t)`},
 	{"special_day_pricing", `to_jsonb(t)`}, {"invoice_series", `to_jsonb(t)`},
 	{"invoices", `to_jsonb(t)-'pdf_path'`}, {"invoice_allocations", `to_jsonb(t)`},
