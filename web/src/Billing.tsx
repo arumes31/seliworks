@@ -360,7 +360,11 @@ export function Reports() {
                 <thead>
                   <tr>
                     <th>
-                      {t(group as "worker" | "farm" | "activity" | "day")}
+                      {t(
+                        group === "activity"
+                          ? "primaryActivity"
+                          : (group as "worker" | "farm" | "day"),
+                      )}
                     </th>
                     <th>{t("gross")}</th>
                     <th>{t("breaks")}</th>
