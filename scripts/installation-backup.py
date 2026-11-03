@@ -105,13 +105,48 @@ def data_hashes(backup):
     return hashes
 
 
-def write_new(path, content, mode):
-    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, mode)
+def write_new(path, content, mode, dir_fd=None):
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, mode, dir_fd=dir_fd)
     with os.fdopen(descriptor, "wb") as stream:
         os.fchmod(stream.fileno(), mode)
         stream.write(content)
         stream.flush()
         os.fsync(stream.fileno())
+
+
+def trusted_parent(target):
+    """Open the restore destination's parent after checking every ancestor.
+
+    Each ancestor must be a real, root-owned directory that other users cannot
+    modify (a sticky world-writable directory such as /tmp is accepted because
+    other users cannot rename or remove root's entries in it). Otherwise a
+    lower-trust user could swap a directory between the checks and the writes.
+    """
+    parent = Path(os.path.realpath(target.parent))
+    for ancestor in (parent, *parent.parents):
+        info = ancestor.lstat()
+        if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0:
+            raise ValueError("Restore destination ancestors must be root-owned directories")
+        sticky = ancestor != parent and info.st_mode & stat.S_ISVTX
+        if info.st_mode & 0o022 and not sticky:
+            raise ValueError("Restore destination ancestors must not be writable by other users")
+    descriptor = os.open(parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    info = os.fstat(descriptor)
+    if info.st_uid != 0 or info.st_mode & 0o022:
+        os.close(descriptor)
+        raise ValueError("Unsafe restore destination parent")
+    return descriptor
+
+
+def private_child(parent_fd, name):
+    """Create a root-private directory under parent_fd and return its descriptor."""
+    os.mkdir(name, 0o700, dir_fd=parent_fd)
+    descriptor = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=parent_fd)
+    info = os.fstat(descriptor)
+    if info.st_uid != 0 or info.st_mode & 0o077:
+        os.close(descriptor)
+        raise ValueError("Unexpected restore directory ownership or permissions")
+    return descriptor
 
 
 def capture(source, backup):
@@ -187,22 +222,44 @@ def verify(backup):
 def restore(backup, target):
     files = verify(backup)
     target = Path(target)
-    directory(target.parent)
-    target.mkdir(mode=0o700)
+    if target.name in ("", ".", ".."):
+        raise ValueError("Invalid restore destination")
+    # Every write below is relative to a retained directory descriptor, so
+    # replacing a pathname component after this point cannot redirect secrets.
+    parent_fd = trusted_parent(target)
+    descriptors = [parent_fd]
     created = []
+    target_created = secrets_created = False
     try:
-        (target / ".secrets").mkdir(mode=0o700)
+        target_fd = private_child(parent_fd, target.name)
+        target_created = True
+        descriptors.append(target_fd)
+        secrets_fd = private_child(target_fd, ".secrets")
+        secrets_created = True
+        descriptors.append(secrets_fd)
         for name, value in files.items():
-            path = target / name
-            created.append(path)
-            write_new(path, value, 0o600 if name == ".env" else 0o644)
+            if name == ".env":
+                directory_fd, filename, mode = target_fd, ".env", 0o600
+            else:
+                directory_fd, filename, mode = secrets_fd, name.removeprefix(".secrets/"), 0o644
+            write_new(filename, value, mode, dir_fd=directory_fd)
+            created.append((directory_fd, filename))
+        for descriptor in reversed(descriptors):
+            os.fsync(descriptor)
     except BaseException:
-        for path in reversed(created):
-            path.unlink(missing_ok=True)
-        if (target / ".secrets").exists():
-            (target / ".secrets").rmdir()
-        target.rmdir()
+        for directory_fd, filename in reversed(created):
+            try:
+                os.unlink(filename, dir_fd=directory_fd)
+            except FileNotFoundError:
+                pass
+        if secrets_created:
+            os.rmdir(".secrets", dir_fd=descriptors[1])
+        if target_created:
+            os.rmdir(target.name, dir_fd=parent_fd)
         raise
+    finally:
+        for descriptor in reversed(descriptors):
+            os.close(descriptor)
 
 
 def main():
