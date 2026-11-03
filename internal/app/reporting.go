@@ -38,6 +38,24 @@ func localDateRange(from, to, zone string) (time.Time, time.Time, error) {
 	}
 	return start, stop, nil
 }
+// nextLocalMidnight returns the first instant of the local calendar day after
+// the one containing t. time.Date normalizes a nonexistent midnight (a DST gap
+// at 00:00, as in America/Santiago or America/Havana) back onto the previous
+// day, e.g. 23:00 of the current day, which would not advance past t. In that
+// case the next day starts at the zone transition itself.
+func nextLocalMidnight(t time.Time, loc *time.Location) time.Time {
+	d := t.In(loc)
+	midnight := time.Date(d.Year(), d.Month(), d.Day()+1, 0, 0, 0, 0, loc)
+	if midnight.After(t) && midnight.In(loc).YearDay() != d.YearDay() {
+		return midnight
+	}
+	if _, transition := midnight.ZoneBounds(); transition.After(t) {
+		return transition
+	}
+	// No usable transition: fall back to a fixed 24h step, which always advances.
+	return t.Add(24 * time.Hour)
+}
+
 func safeCSV(value string) string {
 	v := strings.TrimLeft(value, " \t\r\n")
 	if v != "" && strings.ContainsRune("=+-@", rune(v[0])) {
@@ -137,6 +155,10 @@ FROM work_sessions w JOIN users u ON u.id=w.worker_id JOIN farms f ON f.id=w.far
 	totals := reportRow{Label: "Total"}
 	var provisional int64
 	for _, e := range entries {
+		if err := r.Context().Err(); err != nil {
+			handleError(w, r, err)
+			return
+		}
 		breaks := e.breaks
 		x, y := clippedInterval(e.start, e.stop, start, stop)
 		claims := e.claims
@@ -155,11 +177,15 @@ FROM work_sessions w JOIN users u ON u.id=w.worker_id JOIN farms f ON f.id=w.far
 			case "day":
 				label = x.In(loc).Format("2006-01-02")
 				key = label
-				d := x.In(loc)
-				midnight := time.Date(d.Year(), d.Month(), d.Day()+1, 0, 0, 0, 0, loc)
-				if midnight.Before(end) {
+				if midnight := nextLocalMidnight(x, loc); midnight.Before(end) {
 					end = midnight
 				}
+			}
+			if !end.After(x) {
+				// Defensive: every segment must advance, otherwise the loop
+				// would never terminate.
+				handleError(w, r, fmt.Errorf("report: day segment did not advance at %s", x.Format(time.RFC3339Nano)))
+				return
 			}
 			gross := end.Sub(x).Microseconds()
 			rawNet := netMicroseconds(x, end, breaks)

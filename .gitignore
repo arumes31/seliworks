@@ -24,6 +24,7 @@ backups/
 !internal/app/billing_pdf_pagination_test.go
 !internal/app/timesheet_pdf_test.go
 !internal/app/timesheet_integration_test.go
+!internal/app/report_day_boundary_test.go
 *.test.*
 *.spec.*
 web/test/*
