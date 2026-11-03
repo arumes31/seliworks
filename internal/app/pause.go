@@ -6,6 +6,11 @@ import (
 	"time"
 )
 
+// maxPausesPerSession matches the 100-break limit of manual break edits, so
+// stopping a session never materializes more breaks than an edit may submit
+// and per-break deferred total validation stays bounded.
+const maxPausesPerSession = 100
+
 func (a *App) pause(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Minutes *int `json:"duration_minutes"`
@@ -20,13 +25,20 @@ func (a *App) pause(w http.ResponseWriter, r *http.Request) {
 	}
 	id := r.PathValue("id")
 	u := actor(r)
-	v, e := a.command(r, "work.pause:"+id, in, func(tx pgx.Tx) (any, error) {
+	v, e := a.sessionCommand(r, "work.pause:"+id, id, in, func(tx pgx.Tx) (any, error) {
 		state, _, e := lockOwned(r.Context(), tx, id, u)
 		if e != nil {
 			return nil, e
 		}
 		if state != "RUNNING" {
 			return nil, problem(409, "STATE_CONFLICT", "Only running work can be paused")
+		}
+		var pauses int
+		if e = tx.QueryRow(r.Context(), `SELECT count(*) FROM work_pauses WHERE session_id=$1`, id).Scan(&pauses); e != nil {
+			return nil, e
+		}
+		if pauses >= maxPausesPerSession {
+			return nil, problem(409, "PAUSE_LIMIT", "This work session has reached the maximum number of pauses")
 		}
 		var now time.Time
 		if e = tx.QueryRow(r.Context(), `SELECT clock_timestamp()`).Scan(&now); e != nil {
@@ -94,7 +106,7 @@ func (a *App) resume(w http.ResponseWriter, r *http.Request) {
 	}
 	id := r.PathValue("id")
 	u := actor(r)
-	v, e := a.command(r, "work.resume:"+id, in, func(tx pgx.Tx) (any, error) {
+	v, e := a.sessionCommand(r, "work.resume:"+id, id, in, func(tx pgx.Tx) (any, error) {
 		state, _, e := lockOwned(r.Context(), tx, id, u)
 		if e != nil {
 			return nil, e

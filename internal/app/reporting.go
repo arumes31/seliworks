@@ -38,6 +38,7 @@ func localDateRange(from, to, zone string) (time.Time, time.Time, error) {
 	}
 	return start, stop, nil
 }
+
 // nextLocalMidnight returns the first instant of the local calendar day after
 // the one containing t. time.Date normalizes a nonexistent midnight (a DST gap
 // at 00:00, as in America/Santiago or America/Havana) back onto the previous
