@@ -48,6 +48,21 @@ func nextLocalMidnight(t time.Time, loc *time.Location) time.Time {
 	d := t.In(loc)
 	midnight := time.Date(d.Year(), d.Month(), d.Day()+1, 0, 0, 0, 0, loc)
 	if midnight.After(t) && midnight.In(loc).YearDay() != d.YearDay() {
+		// When 00:00 repeats (a fall-back transition at 01:00, e.g.
+		// Asia/Amman), time.Date may pick the second occurrence. If the
+		// instant before this zone began already belongs to the next date,
+		// the day started at 00:00 in the previous offset.
+		if start, _ := midnight.ZoneBounds(); !start.IsZero() {
+			before := start.Add(-time.Nanosecond).In(loc)
+			next := midnight.In(loc)
+			if before.YearDay() == next.YearDay() {
+				_, offset := before.Zone()
+				earlier := time.Date(next.Year(), next.Month(), next.Day(), 0, 0, 0, 0, time.FixedZone("", offset))
+				if earlier.Before(midnight) && earlier.After(t) {
+					return earlier.In(loc)
+				}
+			}
+		}
 		return midnight
 	}
 	if _, transition := midnight.ZoneBounds(); transition.After(t) {

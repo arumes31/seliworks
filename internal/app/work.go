@@ -191,7 +191,16 @@ func (a *App) sessionCommand(r *http.Request, operation, sessionID string, paylo
 			// Receipts written before compact receipts held the full session.
 			return json.RawMessage(raw), nil
 		}
-		return a.session(r.Context(), a.DB, ref.SessionID)
+		v, e := a.session(r.Context(), a.DB, ref.SessionID)
+		if e != nil {
+			return nil, e
+		}
+		// Re-check access like getSession: the actor may have lost it since
+		// the original command ran.
+		if u := actor(r); v["worker_id"] != u.ID && !u.IsAdmin {
+			return nil, problem(404, "NOT_FOUND", "Record not found")
+		}
+		return v, nil
 	}
 	return a.commandWithReceipt(r, operation, payload, transition, receipt, replay)
 }

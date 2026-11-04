@@ -242,8 +242,10 @@ def restore(backup, target):
                 directory_fd, filename, mode = target_fd, ".env", 0o600
             else:
                 directory_fd, filename, mode = secrets_fd, name.removeprefix(".secrets/"), 0o644
-            write_new(filename, value, mode, dir_fd=directory_fd)
+            # Track before creating: a failed write must still be cleaned up.
+            # The directories are new and private, so no other file can match.
             created.append((directory_fd, filename))
+            write_new(filename, value, mode, dir_fd=directory_fd)
         for descriptor in reversed(descriptors):
             os.fsync(descriptor)
     except BaseException:
