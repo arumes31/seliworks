@@ -225,7 +225,7 @@ sudo sh scripts/backup.sh
 
 The private `0700` parent directory protects secret files on the host; the files remain readable by the non-root container user through Docker's secret mounts. After this preparation, run Compose commands with `sudo` and edit `.env` with `sudoedit`. Installation checks require root-owned configuration files with these permissions. Local backups are protected by file permissions, **not encryption**. Encrypt the complete backup, including key material, before copying it off-host.
 
-Restore into a separate Compose project with an empty database and empty application volume. [installation-backup.py](scripts/installation-backup.py) verifies or reconstructs the matching configuration; [restore.sh](scripts/restore.sh) restores the database and files. Adjust proxy aliases, host paths, and secrets for the separate recovery project. Verify users, running timers, rates, invoices, and PDF downloads before admitting traffic.
+Restore into a separate Compose project with an empty database and empty application volume. [installation-backup.py](scripts/installation-backup.py) verifies or reconstructs the matching configuration; [restore.sh](scripts/restore.sh) restores the database and files. `installation-backup.py restore BACKUP TARGET` creates `TARGET` itself and requires every ancestor of it to be a root-owned directory that other users cannot write (for example `/root/recovery` or a `sudo install -d -m 0700` directory under `/var/lib`). Adjust proxy aliases, host paths, and secrets for the separate recovery project. Verify users, running timers, rates, invoices, and PDF downloads before admitting traffic.
 
 ### Diagnostics
 

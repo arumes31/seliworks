@@ -174,6 +174,38 @@ func (a *App) getSession(w http.ResponseWriter, r *http.Request) {
 
 // command serializes each durable command key independently of process or replica.
 func (a *App) command(r *http.Request, operation string, payload any, transition func(pgx.Tx) (any, error)) (any, error) {
+	return a.commandWithReceipt(r, operation, payload, transition, nil, nil)
+}
+
+// sessionCommand runs a work-session command whose receipt stores only the
+// session reference instead of the full serialized session. Pause history
+// grows with every command, so copying it into every receipt would retain
+// quadratic data. A replay returns the session's current state.
+func (a *App) sessionCommand(r *http.Request, operation, sessionID string, payload any, transition func(pgx.Tx) (any, error)) (any, error) {
+	receipt := func(any) any { return map[string]string{"session_id": sessionID} }
+	replay := func(raw []byte) (any, error) {
+		var ref struct {
+			SessionID string `json:"session_id"`
+		}
+		if e := json.Unmarshal(raw, &ref); e != nil || ref.SessionID == "" {
+			// Receipts written before compact receipts held the full session.
+			return json.RawMessage(raw), nil
+		}
+		v, e := a.session(r.Context(), a.DB, ref.SessionID)
+		if e != nil {
+			return nil, e
+		}
+		// Re-check access like getSession: the actor may have lost it since
+		// the original command ran.
+		if u := actor(r); v["worker_id"] != u.ID && !u.IsAdmin {
+			return nil, problem(404, "NOT_FOUND", "Record not found")
+		}
+		return v, nil
+	}
+	return a.commandWithReceipt(r, operation, payload, transition, receipt, replay)
+}
+
+func (a *App) commandWithReceipt(r *http.Request, operation string, payload any, transition func(pgx.Tx) (any, error), receipt func(any) any, replay func([]byte) (any, error)) (any, error) {
 	key := r.Header.Get("Idempotency-Key")
 	if len(key) < 8 || len(key) > 200 {
 		return nil, problem(422, "IDEMPOTENCY_KEY", "Use an Idempotency-Key between 8 and 200 characters")
@@ -200,6 +232,9 @@ func (a *App) command(r *http.Request, operation string, payload any, transition
 			if fp != fingerprint {
 				return nil, problem(409, "KEY_REUSE", "This command key was already used with a different request")
 			}
+			if replay != nil {
+				return replay(raw)
+			}
 			return json.RawMessage(raw), nil
 		}
 		if e != pgx.ErrNoRows {
@@ -208,7 +243,11 @@ func (a *App) command(r *http.Request, operation string, payload any, transition
 		}
 		v, e := transition(tx)
 		if e == nil {
-			raw, e = json.Marshal(v)
+			stored := v
+			if receipt != nil {
+				stored = receipt(v)
+			}
+			raw, e = json.Marshal(stored)
 		}
 		if e == nil {
 			_, e = tx.Exec(r.Context(), `INSERT INTO commands(actor_id,operation,key,fingerprint,result) VALUES($1,$2,$3,$4,$5)`, u.ID, operation, key, fingerprint, raw)

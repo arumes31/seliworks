@@ -119,21 +119,24 @@ jobs:
           test -n "$backup"
           sudo test -f "$backup/COMPLETE"
           echo "RESTORE_DIR=$PWD/$backup" >> "$GITHUB_ENV"
-          sudo python3 scripts/installation-backup.py restore "$PWD/$backup" "$RUNNER_TEMP/restored-configuration"
+          # Restores require root-owned ancestors that other users cannot modify.
+          sudo install -d -o root -g root -m 0700 /var/lib/seliworks-restore-qa
+          sudo python3 scripts/installation-backup.py restore "$PWD/$backup" /var/lib/seliworks-restore-qa/restored-configuration
           # Discard the original keys. All subsequent Compose services and logins
           # must use only the recovered configuration, never the live key paths.
-          sudo --preserve-env=RUNNER_TEMP python3 - <<'PY'
+          sudo python3 - <<'PY'
           import os
+          import shutil
           from pathlib import Path
           source = Path.cwd()
-          restored = Path(os.environ['RUNNER_TEMP']) / 'restored-configuration'
+          restored = Path('/var/lib/seliworks-restore-qa/restored-configuration')
           owner = source.stat()
           for path in (source / '.secrets').iterdir():
               path.unlink()
           (source / '.secrets').rmdir()
           (source / '.env').unlink()
-          (restored / '.secrets').rename(source / '.secrets')
-          (restored / '.env').rename(source / '.env')
+          shutil.move(restored / '.secrets', source / '.secrets')
+          shutil.move(restored / '.env', source / '.env')
           for path in [source / '.env', source / '.secrets', *(source / '.secrets').iterdir()]:
               os.chown(path, owner.st_uid, owner.st_gid)
           PY

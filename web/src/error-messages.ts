@@ -92,6 +92,8 @@ const de: Record<string, string> = {
   NOT_ISSUED:
     "Stelle die Rechnung aus, bevor du ihr gespeichertes PDF herunterlädst.",
   NOT_READY: "Die Datenbank ist derzeit nicht verfügbar.",
+  PAUSE_LIMIT:
+    "Diese Arbeitszeit hat die maximale Anzahl an Pausen erreicht. Beende sie und trage weitere Pausen bei Bedarf nachträglich ein.",
   PASSWORD_POLICY: "Verwende ein Passwort mit 12 bis 256 Zeichen.",
   PDF_UNAVAILABLE:
     "Das gespeicherte Rechnungs-PDF ist nicht verfügbar oder für den Mailversand zu groß. Prüfe die Dokumentensicherung.",
