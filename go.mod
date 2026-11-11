@@ -1,15 +1,15 @@
 module seliworks
 
-go 1.27.3
+go 1.27.4
 
 require (
-	github.com/fxamacker/cbor/v2 v2.9.6
+	github.com/fxamacker/cbor/v2 v2.10.0
 	github.com/go-pdf/fpdf v0.9.0
 	github.com/go-webauthn/webauthn v0.18.2
 	github.com/google/uuid v1.6.0
-	github.com/jackc/pgx/v5 v5.11.0
-	golang.org/x/crypto v0.58.0
-	golang.org/x/image v0.47.0
+	github.com/jackc/pgx/v5 v5.12.0
+	golang.org/x/crypto v0.59.0
+	golang.org/x/image v0.48.0
 )
 
 require (
@@ -19,11 +19,11 @@ require (
 	github.com/google/go-tpm v0.9.8 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
-	github.com/jackc/puddle/v2 v2.2.2 // indirect
-	github.com/philhofer/fwd v1.2.0 // indirect
-	github.com/tinylib/msgp v1.6.4 // indirect
+	github.com/jackc/puddle/v2 v2.2.3 // indirect
+	github.com/philhofer/fwd v1.2.1 // indirect
+	github.com/tinylib/msgp v1.6.5 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
-	golang.org/x/sync v0.24.0 // indirect
-	golang.org/x/sys v0.49.0 // indirect
-	golang.org/x/text v0.43.0 // indirect
+	golang.org/x/sync v0.25.0 // indirect
+	golang.org/x/sys v0.50.0 // indirect
+	golang.org/x/text v0.44.0 // indirect
 )
