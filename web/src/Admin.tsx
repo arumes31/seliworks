@@ -528,7 +528,6 @@ export function Entries({
                 farm_id: form.get("farm_id"),
                 activity_id: form.get("activity_id"),
                 activity_ids: form.getAll("activity_ids"),
-                additional_activities: form.get("additional_activities"),
                 started_at: formInstant(form, "started_at"),
                 stopped_at: formInstant(form, "stopped_at"),
                 description: form.get("description"),
@@ -560,8 +559,8 @@ export function Entries({
             <WorkActivities activities={activities} />
             <LocalTimeField label={t("startTime")} name="started_at" />
             <LocalTimeField label={t("stopTime")} name="stopped_at" />
-            <Field label={t("description")}>
-              <textarea required name="description" maxLength={4000} />
+            <Field label={t("note")}>
+              <textarea name="description" maxLength={4000} />
             </Field>
             <Field label={t("reason")}>
               <textarea required name="reason" maxLength={2000} />

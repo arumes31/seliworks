@@ -1,7 +1,6 @@
 import { useState } from "react";
 import type { Entity, Work } from "./api";
 import { useI18n } from "./i18n";
-import { Field } from "./ui";
 
 export function WorkActivities({
   activities,
@@ -55,34 +54,8 @@ export function WorkActivities({
           ))}
         </div>
       </fieldset>
-      <Field label={t("primaryActivity")} hint={t("primaryActivityHint")}>
-        <select
-          name="activity_id"
-          required
-          value={primary}
-          onChange={(e) => setPrimary(e.target.value)}
-        >
-          <option value="">{t("select")}</option>
-          {choices
-            .filter((a) => selected.includes(a.id))
-            .map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-        </select>
-      </Field>
-      <Field
-        label={t("additionalActivities")}
-        hint={t("additionalActivitiesHint")}
-      >
-        <textarea
-          name="additional_activities"
-          defaultValue={entry?.additional_activities ?? ""}
-          rows={3}
-          maxLength={1000}
-        />
-      </Field>
+      {/* First ticked activity sets the hourly rate; a still-ticked saved primary is kept. */}
+      <input type="hidden" name="activity_id" value={primary} />
     </>
   );
 }

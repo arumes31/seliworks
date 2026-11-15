@@ -107,7 +107,7 @@ func (a *App) editWork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	nextState := "SUBMITTED"
-	if strings.TrimSpace(in.Description) == "" || in.ActivityID == "" {
+	if in.ActivityID == "" {
 		nextState = "STOPPED_PENDING_DETAILS"
 	}
 	_, e = tx.Exec(r.Context(), `DELETE FROM breaks WHERE session_id=$1`, id)

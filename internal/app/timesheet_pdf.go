@@ -87,6 +87,9 @@ func renderTimesheetPDFs(docs []timesheetDocument, team bool) ([]byte, error) {
 			if e.DayType == "HOLIDAY" {
 				day = tr("Feiertag", "Public holiday")
 			}
+			if e.DayType == "TIME_OFF" {
+				day = tr("Zeitausgleich", "Time off in lieu")
+			}
 			activity := e.Activity
 			if activity == "" {
 				activity = tr("Keine Tätigkeit", "No activity")

@@ -84,8 +84,12 @@ export const en = {
   dayTypeHint:
     "Choose Vacation day when you worked while on vacation from your main job.",
   regularDay: "Regular day",
+  timeOffDay: "Time off in lieu",
+  note: "Note (optional)",
+  activityRequired: "Select at least one activity.",
   holidayDay: "Public holiday",
-  dayTypeRequired: "Choose Regular day, Vacation day, or Public holiday.",
+  dayTypeRequired:
+    "Choose Regular day, Time off in lieu, Vacation day, or Public holiday.",
   specialDayPricing: "Vacation and public-holiday surcharges",
   specialDayHint:
     "These are days worked while on vacation from another job or on a public holiday. Set the customer surcharge as a percentage of the base hourly rate or an extra amount per worked hour. Unconfigured rules block billing for that day type; enter 0 explicitly for no surcharge.",
@@ -513,8 +517,12 @@ export const de: Record<Key, string> = {
   dayTypeHint:
     "Wähle Urlaubstag, wenn du während des Urlaubs vom Hauptberuf gearbeitet hast.",
   regularDay: "Normaler Tag",
+  timeOffDay: "Zeitausgleich",
+  note: "Notiz (optional)",
+  activityRequired: "Wähle mindestens eine Tätigkeit.",
   holidayDay: "Feiertag",
-  dayTypeRequired: "Wähle Normaler Tag, Urlaubstag oder Feiertag.",
+  dayTypeRequired:
+    "Wähle Normaler Tag, Zeitausgleich, Urlaubstag oder Feiertag.",
   specialDayPricing: "Zuschläge für Urlaubs- und Feiertage",
   specialDayHint:
     "Gemeint ist Arbeit während des Urlaubs vom Hauptberuf oder an einem Feiertag. Lege den Kundenzuschlag als Prozentsatz des Basisstundensatzes oder als zusätzlichen Betrag je Arbeitsstunde fest. Nicht konfigurierte Regeln sperren die Verrechnung dieser Tagesart. Trage ausdrücklich 0 ein, wenn kein Zuschlag gelten soll.",

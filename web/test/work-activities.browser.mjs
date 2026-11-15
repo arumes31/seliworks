@@ -187,19 +187,18 @@ for (const width of [390, 1280])
           await dialog.getByLabel("Fütterung", { exact: true }).isChecked(),
           true,
         );
+        // Simplified form for everyone: no primary picker or free-text extras.
         assert.equal(
           await dialog
             .getByLabel("Weitere Tätigkeiten", { exact: true })
-            .inputValue(),
-          manual ? "" : "Vorheriger Text",
+            .count(),
+          0,
         );
         await dialog.getByLabel("Stallarbeit", { exact: true }).check();
-        await dialog
-          .getByLabel("Haupttätigkeit (Stundensatz)", { exact: true })
-          .selectOption("two");
-        await dialog
-          .getByLabel("Weitere Tätigkeiten", { exact: true })
-          .fill("Zaun repariert\nWasser geprüft <script>text</script>");
+        if (!admin) {
+          await dialog.getByLabel("Zeitausgleich", { exact: true }).check();
+          await dialog.getByLabel("Notiz (optional)", { exact: true }).fill("");
+        }
         if (admin)
           await dialog
             .locator('[name="reason"]')
@@ -230,11 +229,13 @@ for (const width of [390, 1280])
         await dialog.waitFor({ state: "detached" });
         assert.equal(writes.length, 1);
         assert.deepEqual(writes[0].activity_ids, ["one", "two"]);
-        assert.equal(writes[0].activity_id, "two");
+        // The still-ticked primary stays; saved text is resent unchanged (manual omits it).
+        assert.equal(writes[0].activity_id, "one");
         assert.equal(
           writes[0].additional_activities,
-          "Zaun repariert\nWasser geprüft <script>text</script>",
+          manual ? undefined : "Vorheriger Text",
         );
+        if (!admin) assert.equal(writes[0].day_type, "TIME_OFF");
         await page.reload();
         await open();
         assert.match(
@@ -243,7 +244,7 @@ for (const width of [390, 1280])
         );
         assert.match(
           await page.getByRole("dialog").innerText(),
-          /Wasser geprüft <script>text<\/script>/,
+          /Vorheriger Text/,
         );
         assert.deepEqual(errors, []);
       } finally {

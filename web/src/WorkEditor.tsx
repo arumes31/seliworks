@@ -7,6 +7,13 @@ import { ActionForm, Field } from "./ui";
 import { WorkActivities } from "./WorkActivities";
 import { LocalTimeField } from "./LocalTimeField";
 
+export const dayTypeKey = {
+  REGULAR: "regularDay",
+  TIME_OFF: "timeOffDay",
+  VACATION: "vacationDay",
+  HOLIDAY: "holidayDay",
+} as const;
+
 export function WorkEditor({
   entry,
   activities,
@@ -33,20 +40,16 @@ export function WorkEditor({
           ? "REGULAR"
           : undefined),
   );
-  const [deduction, setDeduction] = useState(
-    (entry.additional_deduction_us ?? 0) / 60e6,
-  );
   const [detailsSaved, setDetailsSaved] = useState(false);
   async function save(form: FormData) {
     if (!dayType) throw new Error(t("dayTypeRequired"));
+    if (!form.get("activity_id")) throw new Error(t("activityRequired"));
     const originalStart = entry.effective_start || entry.started_at;
     const originalStop = entry.effective_stop || entry.stopped_at || "";
     const startISO = admin
       ? formInstant(form, "effective_start", originalStart)
       : originalStart;
-    const stopISO = admin
-      ? formInstant(form, "effective_stop", originalStop)
-      : originalStop;
+    const stopISO = formInstant(form, "effective_stop", originalStop);
     const intervals = breaks
       .map((b) => ({ ...b }))
       .sort((a, b) => Date.parse(a.started_at) - Date.parse(b.started_at));
@@ -65,31 +68,27 @@ export function WorkEditor({
         throw new Error(t("invalidBreak"));
       breakUS += (Date.parse(b.stopped_at) - Date.parse(b.started_at)) * 1000;
     }
-    const deductionUS = Math.round(deduction * 60e6);
-    if (
-      !Number.isSafeInteger(deductionUS) ||
-      deductionUS < 0 ||
-      stop <= start ||
-      breakUS + deductionUS > (stop - start) * 1000
-    )
+    const deductionUS = entry.additional_deduction_us ?? 0;
+    if (stop <= start || breakUS + deductionUS > (stop - start) * 1000)
       throw new Error(t("invalidNet"));
     const body = {
       version,
       activity_id: form.get("activity_id"),
       activity_ids: form.getAll("activity_ids"),
-      additional_activities: form.get("additional_activities"),
       description: form.get("description"),
-      location: form.get("location"),
-      non_billable: form.get("non_billable") === "on",
       breaks: intervals,
       day_type: dayType,
       is_vacation_day: dayType === "VACATION",
+      effective_stop: stopISO,
+      // These fields are no longer in the form; resend saved values so nothing is wiped.
       additional_deduction_us: deductionUS,
-      deduction_reason: form.get("deduction_reason") || "",
+      additional_activities: entry.additional_activities ?? "",
+      location: entry.location ?? "",
+      non_billable: entry.non_billable,
+      deduction_reason: entry.deduction_reason ?? "",
       ...(admin
         ? {
             effective_start: startISO,
-            effective_stop: stopISO,
             farm_id: form.get("farm_id"),
             worker_id: form.get("worker_id"),
             reason: form.get("reason"),
@@ -140,88 +139,52 @@ export function WorkEditor({
                 ))}
             </select>
           </Field>
-          <div className="form-grid">
-            <LocalTimeField
-              label={t("startTime")}
-              name="effective_start"
-              instant={entry.effective_start || entry.started_at}
-            />
-            <LocalTimeField
-              label={t("stopTime")}
-              name="effective_stop"
-              instant={
-                entry.effective_stop || entry.stopped_at || entry.started_at
-              }
-            />
-          </div>
         </>
       )}
+      <div className="form-grid">
+        {admin && (
+          <LocalTimeField
+            label={t("startTime")}
+            name="effective_start"
+            instant={entry.effective_start || entry.started_at}
+          />
+        )}
+        <LocalTimeField
+          label={t("stopTime")}
+          name="effective_stop"
+          instant={entry.effective_stop || entry.stopped_at || entry.started_at}
+        />
+      </div>
       <WorkActivities activities={activities} entry={entry} />
-      <Field label={t("description")}>
+      <Field label={t("note")}>
         <textarea
           name="description"
-          required
           defaultValue={entry.description}
           rows={4}
           maxLength={4000}
         />
       </Field>
-      <Field label={t("location")}>
-        <input name="location" defaultValue={entry.location} maxLength={300} />
-      </Field>
       <fieldset className="vacation-question">
         <legend>{t("dayType")}</legend>
         <p className="muted small">{t("dayTypeHint")}</p>
         <div className="button-group">
-          {(["REGULAR", "VACATION", "HOLIDAY"] as const).map((type) => (
-            <label className="check" key={type}>
-              <input
-                required
-                name="day_type"
-                type="radio"
-                value={type}
-                checked={dayType === type}
-                onChange={() => setDayType(type)}
-              />
-              {t(
-                type === "REGULAR"
-                  ? "regularDay"
-                  : type === "VACATION"
-                    ? "vacationDay"
-                    : "holidayDay",
-              )}
-            </label>
-          ))}
+          {(["REGULAR", "TIME_OFF", "VACATION", "HOLIDAY"] as const).map(
+            (type) => (
+              <label className="check" key={type}>
+                <input
+                  required
+                  name="day_type"
+                  type="radio"
+                  value={type}
+                  checked={dayType === type}
+                  onChange={() => setDayType(type)}
+                />
+                {t(dayTypeKey[type])}
+              </label>
+            ),
+          )}
         </div>
       </fieldset>
-      <Field label={t("additionalDeduction")}>
-        <input
-          name="additional_deduction_minutes"
-          type="number"
-          inputMode="decimal"
-          min={0}
-          step="0.01"
-          required
-          value={deduction}
-          onChange={(e) => setDeduction(e.target.valueAsNumber)}
-        />
-      </Field>
-      <Field label={t("deductionReason")}>
-        <textarea
-          name="deduction_reason"
-          defaultValue={entry.deduction_reason}
-          required={deduction > 0}
-          maxLength={2000}
-        />
-      </Field>
-      <label className="check">
-        <input
-          type="checkbox"
-          name="non_billable"
-          defaultChecked={entry.non_billable}
-        />
-        {t("nonBillable")}
-      </label>
       <div className="break-heading">
         <h3>{t("breaks")}</h3>
         <button
@@ -272,6 +235,7 @@ export function WorkEditor({
             type="button"
             className="icon-button"
             aria-label={t("deleteBreak")}
+            title={t("deleteBreak")}
             onClick={() => setBreaks(breaks.filter((_, j) => i !== j))}
           >
             <Trash2 size={18} />

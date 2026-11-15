@@ -42,7 +42,11 @@ The original recording and original farm remain documented. Changes are audited 
 
 ### PDF timesheets
 
-Work entries support multiple selected activities and an optional **Additional activities** text field (up to 1,000 characters). The selected **Primary activity** determines the hourly rate and activity report grouping; work time is counted once. Additional selections and text are retained in timesheets, invoice detail snapshots, and business exports.
+Work entries support multiple selected activities. The primary activity (the first ticked one, or the saved primary while it stays ticked) determines the hourly rate and activity report grouping; work time is counted once. Selections and any previously saved additional-activity text are retained in timesheets, invoice detail snapshots, and business exports.
+
+Workers and administrators use the same simplified entry form: activities, an optional **Note**, the day type (Regular day, **Time off in lieu / Zeitausgleich**, Vacation day, Public holiday), breaks, and an editable **end time** (after the start, not in the future; the original recorded stop stays immutable). The first ticked activity becomes the primary activity. The primary-activity picker, additional activities, location, additional deductions and the non-billable flag are no longer editable; previously saved values are preserved. Time off in lieu is billed like a regular day.
+
+The **Reports → Export** CSV lists one row per entry: date, start time, end time (empty while running), activities, worker, farm, breaks and net time, in the organization's timezone.
 
 Summary-only invoice PDFs retain the primary activity/rate grouping. Enable the detailed appendix, or use the detailed invoice layout, to include the additional activity evidence in the invoice PDF.
 
