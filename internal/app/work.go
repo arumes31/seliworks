@@ -485,7 +485,8 @@ func (a *App) details(w http.ResponseWriter, r *http.Request) {
 		handleError(w, r, e)
 		return
 	}
-	_, e = tx.Exec(r.Context(), `UPDATE work_sessions SET activity_id=$2,description=$3,location=$4,non_billable=$5,is_vacation_day=$6,additional_deduction_us=$7,deduction_reason=$8,day_type=$9,effective_stop=coalesce($10,effective_stop),version=version+1,updated_at=clock_timestamp() WHERE id=$1`, id, in.ActivityID, strings.TrimSpace(in.Description), in.Location, in.NonBillable, dayType == "VACATION", in.Deduction, strings.TrimSpace(in.DeductionReason), dayType, in.Stop)
+	// non_billable and deductions affect invoices; only the admin correction route may change them.
+	_, e = tx.Exec(r.Context(), `UPDATE work_sessions SET activity_id=$2,description=$3,location=$4,is_vacation_day=$5,day_type=$6,effective_stop=coalesce($7,effective_stop),version=version+1,updated_at=clock_timestamp() WHERE id=$1`, id, in.ActivityID, strings.TrimSpace(in.Description), in.Location, dayType == "VACATION", dayType, in.Stop)
 	if e == nil {
 		_, e = tx.Exec(r.Context(), `DELETE FROM breaks WHERE session_id=$1`, id)
 	}
