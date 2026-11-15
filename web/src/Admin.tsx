@@ -25,6 +25,7 @@ import {
 
 import { WorkDetails } from "./WorkDetails";
 import { LocalTimeField } from "./LocalTimeField";
+import { DayTypeField } from "./WorkEditor";
 import { TimesheetExport } from "./TimesheetExport";
 
 interface OverviewData {
@@ -532,6 +533,7 @@ export function Entries({
                 stopped_at: formInstant(form, "stopped_at"),
                 description: form.get("description"),
                 reason: form.get("reason"),
+                day_type: form.get("day_type"),
               });
               setManual(false);
               await result.refresh();
@@ -562,6 +564,7 @@ export function Entries({
             <Field label={t("note")}>
               <textarea name="description" maxLength={4000} />
             </Field>
+            <DayTypeField defaultValue="REGULAR" />
             <Field label={t("reason")}>
               <textarea required name="reason" maxLength={2000} />
             </Field>

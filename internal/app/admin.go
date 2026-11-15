@@ -441,10 +441,20 @@ func (a *App) manual(w http.ResponseWriter, r *http.Request) {
 		Stop        time.Time `json:"stopped_at"`
 		Description string    `json:"description"`
 		Reason      string    `json:"reason"`
+		DayType     string    `json:"day_type"`
 	}
 	if e := decode(r, &in); e != nil {
 		handleError(w, r, e)
 		return
+	}
+	// Older clients omit the day type; keep their regular-day default.
+	dayType := "REGULAR"
+	if in.DayType != "" {
+		var e error
+		if dayType, e = resolveDayAnswer(nil, in.DayType); e != nil {
+			handleError(w, r, e)
+			return
+		}
 	}
 	if in.Start.IsZero() || !in.Stop.After(in.Start) || len(in.Description) > 4000 || strings.TrimSpace(in.Reason) == "" || len(in.Reason) > 2000 {
 		fail(w, r, 422, "VALIDATION", "Provide explicit offset-bearing times, work details and justification")
@@ -473,7 +483,7 @@ func (a *App) manual(w http.ResponseWriter, r *http.Request) {
 	}
 	var id string
 	if e == nil {
-		e = tx.QueryRow(r.Context(), `INSERT INTO work_sessions(worker_id,farm_id,activity_id,started_at,stopped_at,effective_start,effective_stop,state,description,created_by,updated_at) VALUES($1,$2,$3,$4,$5,$4,$5,'SUBMITTED',$6,$7,$8) RETURNING id::text`, in.WorkerID, in.FarmID, in.ActivityID, in.Start, in.Stop, in.Description, actor(r).ID, now).Scan(&id)
+		e = tx.QueryRow(r.Context(), `INSERT INTO work_sessions(worker_id,farm_id,activity_id,started_at,stopped_at,effective_start,effective_stop,state,description,created_by,updated_at,day_type) VALUES($1,$2,$3,$4,$5,$4,$5,'SUBMITTED',$6,$7,$8,$9) RETURNING id::text`, in.WorkerID, in.FarmID, in.ActivityID, in.Start, in.Stop, in.Description, actor(r).ID, now, dayType).Scan(&id)
 	}
 	if e == nil {
 		e = in.save(r.Context(), tx, id)
