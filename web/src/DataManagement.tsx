@@ -14,6 +14,7 @@ interface RetentionPreview {
     invitations: number;
     auth_limits: number;
     passkey_ceremonies: number;
+    commands: number;
   };
 }
 
@@ -53,6 +54,7 @@ export function DataManagement() {
                   ["invitations", "expiredInvitations"],
                   ["auth_limits", "oldLoginCounters"],
                   ["passkey_ceremonies", "expiredPasskeyCeremonies"],
+                  ["commands", "oldRequestReceipts"],
                 ] as const
               ).map(([field, label]) => (
                 <div key={field}>

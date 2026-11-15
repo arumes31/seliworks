@@ -86,3 +86,43 @@ func TestTimeOffPricedLikeRegularDay(t *testing.T) {
 		t.Fatalf("time off pricing: %+v %v", off, err)
 	}
 }
+
+// Manual admin entries keep the chosen day type; omitting it stays a regular day.
+func TestManualEntryDayType(t *testing.T) {
+	a, user := invitationSecurityFixture(t)
+	ctx := context.Background()
+	_, farm := deleteWorkEntry(t, a, user, "APPROVED")
+	var activity string
+	if err := a.DB.QueryRow(ctx, `SELECT id::text FROM activities LIMIT 1`).Scan(&activity); err != nil {
+		t.Fatal(err)
+	}
+	body := map[string]any{"worker_id": user.ID, "farm_id": farm, "activity_id": activity, "activity_ids": []string{activity}, "started_at": "2026-01-05T09:00:00Z", "stopped_at": "2026-01-05T10:00:00Z", "reason": "Paper timesheet", "day_type": "HOLIDAY"}
+	if saved := invitationSecurityOK(t, deleteWorkRequest(t, a, user, "POST", "/admin/work-sessions/manual", body, true)); saved["day_type"] != "HOLIDAY" {
+		t.Fatalf("day type lost: %v", saved)
+	}
+	body["day_type"] = "WEEKEND"
+	body["started_at"], body["stopped_at"] = "2026-01-06T09:00:00Z", "2026-01-06T10:00:00Z"
+	if w := deleteWorkRequest(t, a, user, "POST", "/admin/work-sessions/manual", body, true); w.Code != 422 {
+		t.Fatalf("invalid day type accepted: %d", w.Code)
+	}
+	delete(body, "day_type")
+	if saved := invitationSecurityOK(t, deleteWorkRequest(t, a, user, "POST", "/admin/work-sessions/manual", body, true)); saved["day_type"] != "REGULAR" {
+		t.Fatalf("default day type: %v", saved)
+	}
+}
+
+// Old duplicate-submission receipts are part of the security cleanup.
+func TestRetentionIncludesCommandReceipts(t *testing.T) {
+	a, user := invitationSecurityFixture(t)
+	ctx := context.Background()
+	if _, err := a.DB.Exec(ctx, `INSERT INTO commands(actor_id,operation,key,fingerprint,result,created_at) VALUES($1,'fixture','old-receipt','x','{}',clock_timestamp()-interval '10 years')`, user.ID); err != nil {
+		t.Fatal(err)
+	}
+	state, err := retentionState(ctx, a.DB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if counts := state["candidates"].(map[string]int64); counts["commands"] < 1 {
+		t.Fatalf("old receipt not listed: %v", counts)
+	}
+}

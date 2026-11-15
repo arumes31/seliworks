@@ -14,6 +14,33 @@ export const dayTypeKey = {
   HOLIDAY: "holidayDay",
 } as const;
 
+// Uncontrolled radio group; forms read the choice from FormData "day_type".
+export function DayTypeField({ defaultValue }: { defaultValue?: DayType }) {
+  const { t } = useI18n();
+  return (
+    <fieldset className="vacation-question">
+      <legend>{t("dayType")}</legend>
+      <p className="muted small">{t("dayTypeHint")}</p>
+      <div className="button-group">
+        {(["REGULAR", "TIME_OFF", "VACATION", "HOLIDAY"] as const).map(
+          (type) => (
+            <label className="check" key={type}>
+              <input
+                required
+                name="day_type"
+                type="radio"
+                value={type}
+                defaultChecked={defaultValue === type}
+              />
+              {t(dayTypeKey[type])}
+            </label>
+          ),
+        )}
+      </div>
+    </fieldset>
+  );
+}
+
 export function WorkEditor({
   entry,
   activities,
@@ -32,16 +59,21 @@ export function WorkEditor({
   const { t } = useI18n();
   const [version, setVersion] = useState(entry.version);
   const [breaks, setBreaks] = useState<Break[]>(entry.breaks ?? []);
-  const [dayType, setDayType] = useState<DayType | undefined>(
+  const dayType: DayType | undefined =
     entry.day_type ??
-      (entry.is_vacation_day === true
-        ? "VACATION"
-        : entry.is_vacation_day === false
-          ? "REGULAR"
-          : undefined),
+    (entry.is_vacation_day === true
+      ? "VACATION"
+      : entry.is_vacation_day === false
+        ? "REGULAR"
+        : undefined);
+  // Edited times seed new breaks, so a shortened entry gets a valid default break.
+  const [start, setStart] = useState(entry.effective_start || entry.started_at);
+  const [stop, setStop] = useState(
+    entry.effective_stop || entry.stopped_at || entry.started_at,
   );
   const [detailsSaved, setDetailsSaved] = useState(false);
   async function save(form: FormData) {
+    const dayType = form.get("day_type");
     if (!dayType) throw new Error(t("dayTypeRequired"));
     if (!form.get("activity_id")) throw new Error(t("activityRequired"));
     const originalStart = entry.effective_start || entry.started_at;
@@ -53,14 +85,14 @@ export function WorkEditor({
     const intervals = breaks
       .map((b) => ({ ...b }))
       .sort((a, b) => Date.parse(a.started_at) - Date.parse(b.started_at));
-    const start = Date.parse(startISO);
-    const stop = Date.parse(stopISO);
+    const startMS = Date.parse(startISO);
+    const stopMS = Date.parse(stopISO);
     let breakUS = 0;
     for (let i = 0; i < intervals.length; i++) {
       const b = intervals[i]!;
       if (
-        Date.parse(b.started_at) < start ||
-        Date.parse(b.stopped_at) > stop ||
+        Date.parse(b.started_at) < startMS ||
+        Date.parse(b.stopped_at) > stopMS ||
         Date.parse(b.started_at) >= Date.parse(b.stopped_at) ||
         (i > 0 &&
           Date.parse(intervals[i - 1]!.stopped_at) > Date.parse(b.started_at))
@@ -69,7 +101,7 @@ export function WorkEditor({
       breakUS += (Date.parse(b.stopped_at) - Date.parse(b.started_at)) * 1000;
     }
     const deductionUS = entry.additional_deduction_us ?? 0;
-    if (stop <= start || breakUS + deductionUS > (stop - start) * 1000)
+    if (stopMS <= startMS || breakUS + deductionUS > (stopMS - startMS) * 1000)
       throw new Error(t("invalidNet"));
     const body = {
       version,
@@ -146,13 +178,15 @@ export function WorkEditor({
           <LocalTimeField
             label={t("startTime")}
             name="effective_start"
-            instant={entry.effective_start || entry.started_at}
+            instant={start}
+            onInstantChange={setStart}
           />
         )}
         <LocalTimeField
           label={t("stopTime")}
           name="effective_stop"
-          instant={entry.effective_stop || entry.stopped_at || entry.started_at}
+          instant={stop}
+          onInstantChange={setStop}
         />
       </div>
       <WorkActivities activities={activities} entry={entry} />
@@ -164,41 +198,14 @@ export function WorkEditor({
           maxLength={4000}
         />
       </Field>
-      <fieldset className="vacation-question">
-        <legend>{t("dayType")}</legend>
-        <p className="muted small">{t("dayTypeHint")}</p>
-        <div className="button-group">
-          {(["REGULAR", "TIME_OFF", "VACATION", "HOLIDAY"] as const).map(
-            (type) => (
-              <label className="check" key={type}>
-                <input
-                  required
-                  name="day_type"
-                  type="radio"
-                  value={type}
-                  checked={dayType === type}
-                  onChange={() => setDayType(type)}
-                />
-                {t(dayTypeKey[type])}
-              </label>
-            ),
-          )}
-        </div>
-      </fieldset>
+      <DayTypeField defaultValue={dayType} />
       <div className="break-heading">
         <h3>{t("breaks")}</h3>
         <button
           type="button"
           className="text-button"
           onClick={() =>
-            setBreaks([
-              ...breaks,
-              {
-                started_at: entry.effective_start || entry.started_at,
-                stopped_at:
-                  entry.effective_stop || entry.stopped_at || entry.started_at,
-              },
-            ])
+            setBreaks([...breaks, { started_at: start, stopped_at: stop }])
           }
         >
           <Plus size={16} />

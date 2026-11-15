@@ -13,6 +13,8 @@ var retentionRelations = []struct{ table, timestamp string }{
 	{"passkey_ceremonies", "expires_at"},
 	{"invitations", "expires_at"},
 	{"auth_limits", "window_start"},
+	// Request receipts only guard against duplicate submissions; old ones are never replayed.
+	{"commands", "created_at"},
 }
 
 func retentionState(ctx context.Context, q querier) (map[string]any, error) {

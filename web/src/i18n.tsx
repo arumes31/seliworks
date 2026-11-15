@@ -62,6 +62,7 @@ export const en = {
   expiredSessions: "Expired sign-in sessions",
   expiredInvitations: "Expired account setup links",
   oldLoginCounters: "Old login counters",
+  oldRequestReceipts: "Old duplicate-submission receipts",
   expiredPasskeyCeremonies: "Expired passkey requests",
   refreshPreview: "Refresh preview",
   confirmSecurityCleanup:
@@ -495,6 +496,7 @@ export const de: Record<Key, string> = {
   expiredSessions: "Abgelaufene Anmeldesitzungen",
   expiredInvitations: "Abgelaufene Kontoeinrichtungslinks",
   oldLoginCounters: "Alte Anmeldezähler",
+  oldRequestReceipts: "Alte Belege gegen Doppelabsendungen",
   expiredPasskeyCeremonies: "Abgelaufene Passkey-Anfragen",
   refreshPreview: "Vorschau aktualisieren",
   confirmSecurityCleanup:
