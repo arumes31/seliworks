@@ -446,7 +446,7 @@ func (a *App) manual(w http.ResponseWriter, r *http.Request) {
 		handleError(w, r, e)
 		return
 	}
-	if in.Start.IsZero() || !in.Stop.After(in.Start) || strings.TrimSpace(in.Description) == "" || strings.TrimSpace(in.Reason) == "" || len(in.Reason) > 2000 {
+	if in.Start.IsZero() || !in.Stop.After(in.Start) || len(in.Description) > 4000 || strings.TrimSpace(in.Reason) == "" || len(in.Reason) > 2000 {
 		fail(w, r, 422, "VALIDATION", "Provide explicit offset-bearing times, work details and justification")
 		return
 	}
@@ -567,7 +567,7 @@ func (a *App) reviewCorrection(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if e == nil && in.Approve {
-		_, e = tx.Exec(r.Context(), `UPDATE work_sessions SET effective_start=$2,effective_stop=$3,state=CASE WHEN description<>'' AND activity_id IS NOT NULL THEN 'SUBMITTED' ELSE 'STOPPED_PENDING_DETAILS' END,version=version+1,updated_at=clock_timestamp() WHERE id=$1`, sid, start, stop)
+		_, e = tx.Exec(r.Context(), `UPDATE work_sessions SET effective_start=$2,effective_stop=$3,state=CASE WHEN activity_id IS NOT NULL THEN 'SUBMITTED' ELSE 'STOPPED_PENDING_DETAILS' END,version=version+1,updated_at=clock_timestamp() WHERE id=$1`, sid, start, stop)
 	}
 	next := "REJECTED"
 	if in.Approve {

@@ -3,7 +3,7 @@ import { api, formInstant } from "./api";
 import type { Entity, Work } from "./api";
 import { useI18n } from "./i18n";
 import { ActionForm, Field, Modal, Status } from "./ui";
-import { WorkEditor } from "./WorkEditor";
+import { WorkEditor, dayTypeKey } from "./WorkEditor";
 import { PricingReview } from "./PricingReview";
 import { LocalTimeField } from "./LocalTimeField";
 export function WorkDetails({
@@ -213,14 +213,7 @@ export function WorkDetails({
           {entry.location && <p className="muted">{entry.location}</p>}
           {dayType && (
             <p>
-              {t("dayType")}:{" "}
-              {t(
-                dayType === "REGULAR"
-                  ? "regularDay"
-                  : dayType === "VACATION"
-                    ? "vacationDay"
-                    : "holidayDay",
-              )}
+              {t("dayType")}: {t(dayTypeKey[dayType])}
             </p>
           )}
           {entry.additional_deduction_us > 0 && (

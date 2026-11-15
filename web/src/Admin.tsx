@@ -560,8 +560,8 @@ export function Entries({
             <WorkActivities activities={activities} />
             <LocalTimeField label={t("startTime")} name="started_at" />
             <LocalTimeField label={t("stopTime")} name="stopped_at" />
-            <Field label={t("description")}>
-              <textarea required name="description" maxLength={4000} />
+            <Field label={t("note")}>
+              <textarea name="description" maxLength={4000} />
             </Field>
             <Field label={t("reason")}>
               <textarea required name="reason" maxLength={2000} />

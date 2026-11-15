@@ -194,13 +194,13 @@ func calculatePolicyPrice(start, stop time.Time, breaks []priceInterval, rules [
 	if dayType == "" {
 		dayType = "REGULAR"
 	}
-	if dayType != "REGULAR" && dayType != "VACATION" && dayType != "HOLIDAY" {
+	if dayType != "REGULAR" && dayType != "TIME_OFF" && !specialDay(dayType) {
 		return PriceSnapshot{}, problem(422, "INVALID_DAY_TYPE", "Choose regular work, work on a vacation day, or work on a public holiday")
 	}
 	rawNet := netMicroseconds(start, stop, breaks)
 	s := PriceSnapshot{SourceStart: start, SourceStop: stop, RawNetUS: rawNet, AdditionalDeductionUS: deduction, VacationDay: dayType == "VACATION", DayType: dayType, Priced: true, NonBillable: nonBillable, Policy: pricePolicy, Breaks: breaks, Segments: []priceSegment{}, NetUS: rawNet - deduction, Net: "0.00"}
 	var appliedPolicy *DayPricingPolicy
-	if dayType != "REGULAR" && validDayPolicy(dayType, policy) {
+	if specialDay(dayType) && validDayPolicy(dayType, policy) {
 		copy := *policy
 		appliedPolicy = &copy
 		s.SpecialDayPolicy = appliedPolicy
@@ -253,7 +253,7 @@ func calculatePolicyPrice(start, stop time.Time, breaks []priceInterval, rules [
 		return s, problem(422, "AMOUNT_TOO_LARGE", "Calculated charges exceed the supported range. Review the hourly rate and surcharge")
 	}
 	s.Net = moneyString(cents.Int64())
-	if dayType != "REGULAR" && appliedPolicy == nil {
+	if specialDay(dayType) && appliedPolicy == nil {
 		s.Priced = false
 		s.UnpricedReason = dayType + "_POLICY_REQUIRED"
 	}
@@ -333,7 +333,7 @@ func (a *App) pricingSnapshot(ctx context.Context, tx pgx.Tx, id string) (any, e
 	}
 	rows.Close()
 	var dayPolicy *DayPricingPolicy
-	if dayType != "REGULAR" && !nonBillable {
+	if specialDay(dayType) && !nonBillable {
 		var p DayPricingPolicy
 		err = tx.QueryRow(ctx, `SELECT day_type,coalesce(mode,''),coalesce(value::text,''),version FROM special_day_pricing WHERE day_type=$1 FOR SHARE`, dayType).Scan(&p.DayType, &p.Mode, &p.Value, &p.Version)
 		if err == nil {

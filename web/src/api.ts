@@ -61,7 +61,7 @@ export interface Break {
   started_at: string;
   stopped_at: string;
 }
-export type DayType = "REGULAR" | "VACATION" | "HOLIDAY";
+export type DayType = "REGULAR" | "TIME_OFF" | "VACATION" | "HOLIDAY";
 export interface Work {
   pricing_status?: string;
   day_type?: DayType | null;

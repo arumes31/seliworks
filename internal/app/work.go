@@ -428,6 +428,8 @@ type DetailsInput struct {
 	DayType         string       `json:"day_type"`
 	Deduction       int64        `json:"additional_deduction_us"`
 	DeductionReason string       `json:"deduction_reason"`
+	// Stop optionally corrects the effective end; the recorded stopped_at stays immutable.
+	Stop *time.Time `json:"effective_stop"`
 }
 
 func (a *App) details(w http.ResponseWriter, r *http.Request) {
@@ -441,8 +443,8 @@ func (a *App) details(w http.ResponseWriter, r *http.Request) {
 		handleError(w, r, dayError)
 		return
 	}
-	if strings.TrimSpace(in.Description) == "" || len(in.Description) > 4000 || len(in.Location) > 300 || len(in.Breaks) > 100 || in.Deduction < 0 || len(in.DeductionReason) > 2000 || in.Deduction > 0 && strings.TrimSpace(in.DeductionReason) == "" {
-		fail(w, r, 422, "VALIDATION", "Choose an activity and describe the work (up to 4000 characters)")
+	if len(in.Description) > 4000 || len(in.Location) > 300 || len(in.Breaks) > 100 || in.Deduction < 0 || len(in.DeductionReason) > 2000 || in.Deduction > 0 && strings.TrimSpace(in.DeductionReason) == "" {
+		fail(w, r, 422, "VALIDATION", "Choose an activity; notes are limited to 4000 characters")
 		return
 	}
 	id := r.PathValue("id")
@@ -468,11 +470,22 @@ func (a *App) details(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	before, e := a.session(r.Context(), tx, id)
+	if e == nil && in.Stop != nil {
+		var start, stop, now time.Time
+		e = tx.QueryRow(r.Context(), `SELECT effective_start,effective_stop,clock_timestamp() FROM work_sessions WHERE id=$1`, id).Scan(&start, &stop, &now)
+		if e == nil && !in.Stop.Equal(stop) {
+			if !in.Stop.After(start) || in.Stop.After(now) {
+				e = problem(422, "VALIDATION", "The end time must be after the start and not in the future")
+			} else {
+				e = noReservations(r.Context(), tx, id)
+			}
+		}
+	}
 	if e != nil {
 		handleError(w, r, e)
 		return
 	}
-	_, e = tx.Exec(r.Context(), `UPDATE work_sessions SET activity_id=$2,description=$3,location=$4,non_billable=$5,is_vacation_day=$6,additional_deduction_us=$7,deduction_reason=$8,day_type=$9,version=version+1,updated_at=clock_timestamp() WHERE id=$1`, id, in.ActivityID, strings.TrimSpace(in.Description), in.Location, in.NonBillable, dayType == "VACATION", in.Deduction, strings.TrimSpace(in.DeductionReason), dayType)
+	_, e = tx.Exec(r.Context(), `UPDATE work_sessions SET activity_id=$2,description=$3,location=$4,non_billable=$5,is_vacation_day=$6,additional_deduction_us=$7,deduction_reason=$8,day_type=$9,effective_stop=coalesce($10,effective_stop),version=version+1,updated_at=clock_timestamp() WHERE id=$1`, id, in.ActivityID, strings.TrimSpace(in.Description), in.Location, in.NonBillable, dayType == "VACATION", in.Deduction, strings.TrimSpace(in.DeductionReason), dayType, in.Stop)
 	if e == nil {
 		_, e = tx.Exec(r.Context(), `DELETE FROM breaks WHERE session_id=$1`, id)
 	}

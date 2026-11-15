@@ -7,7 +7,7 @@ import {
   decimalMoney,
   formInstant,
 } from "./api";
-import type { Entity, List } from "./api";
+import type { DayType, Entity, List } from "./api";
 import { useData } from "./hooks";
 import { stateName, useI18n } from "./i18n";
 import { SpecialDayPricing } from "./SpecialDayPricing";
@@ -438,7 +438,7 @@ export function Reports() {
 }
 interface InvoiceItem {
   pricing?: {
-    day_type?: "REGULAR" | "VACATION" | "HOLIDAY";
+    day_type?: DayType;
     special_day_policy?: {
       day_type: "VACATION" | "HOLIDAY";
       mode: "percentage" | "hourly";

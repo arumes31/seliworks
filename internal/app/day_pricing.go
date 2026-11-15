@@ -5,6 +5,10 @@ import (
 	"net/http"
 )
 
+// specialDay reports day types billed with a surcharge policy. TIME_OFF
+// (Zeitausgleich) is billed like a regular day.
+func specialDay(kind string) bool { return kind == "VACATION" || kind == "HOLIDAY" }
+
 func resolveDayAnswer(legacy *bool, kind string) (string, error) {
 	if kind == "" && legacy != nil {
 		if *legacy {
@@ -12,8 +16,8 @@ func resolveDayAnswer(legacy *bool, kind string) (string, error) {
 		}
 		return "REGULAR", nil
 	}
-	if kind != "REGULAR" && kind != "VACATION" && kind != "HOLIDAY" {
-		return "", problem(422, "DAY_TYPE_REQUIRED", "Choose a regular workday, vacation day or public holiday")
+	if kind != "REGULAR" && kind != "TIME_OFF" && !specialDay(kind) {
+		return "", problem(422, "DAY_TYPE_REQUIRED", "Choose a regular workday, time off in lieu, vacation day or public holiday")
 	}
 	if legacy != nil && *legacy != (kind == "VACATION") {
 		return "", problem(422, "DAY_TYPE_CONFLICT", "Vacation flag and explicit day type must agree")

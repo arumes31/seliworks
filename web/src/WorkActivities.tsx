@@ -6,9 +6,12 @@ import { Field } from "./ui";
 export function WorkActivities({
   activities,
   entry,
+  simple = false,
 }: {
   activities: Entity[];
   entry?: Work;
+  // simple hides the primary-activity picker (first ticked activity sets the rate) and free-text extras.
+  simple?: boolean;
 }) {
   const { t } = useI18n();
   const original =
@@ -55,34 +58,40 @@ export function WorkActivities({
           ))}
         </div>
       </fieldset>
-      <Field label={t("primaryActivity")} hint={t("primaryActivityHint")}>
-        <select
-          name="activity_id"
-          required
-          value={primary}
-          onChange={(e) => setPrimary(e.target.value)}
-        >
-          <option value="">{t("select")}</option>
-          {choices
-            .filter((a) => selected.includes(a.id))
-            .map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-        </select>
-      </Field>
-      <Field
-        label={t("additionalActivities")}
-        hint={t("additionalActivitiesHint")}
-      >
-        <textarea
-          name="additional_activities"
-          defaultValue={entry?.additional_activities ?? ""}
-          rows={3}
-          maxLength={1000}
-        />
-      </Field>
+      {simple ? (
+        <input type="hidden" name="activity_id" value={primary} />
+      ) : (
+        <>
+          <Field label={t("primaryActivity")} hint={t("primaryActivityHint")}>
+            <select
+              name="activity_id"
+              required
+              value={primary}
+              onChange={(e) => setPrimary(e.target.value)}
+            >
+              <option value="">{t("select")}</option>
+              {choices
+                .filter((a) => selected.includes(a.id))
+                .map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+            </select>
+          </Field>
+          <Field
+            label={t("additionalActivities")}
+            hint={t("additionalActivitiesHint")}
+          >
+            <textarea
+              name="additional_activities"
+              defaultValue={entry?.additional_activities ?? ""}
+              rows={3}
+              maxLength={1000}
+            />
+          </Field>
+        </>
+      )}
     </>
   );
 }
