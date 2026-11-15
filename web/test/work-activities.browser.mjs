@@ -187,28 +187,15 @@ for (const width of [390, 1280])
           await dialog.getByLabel("Fütterung", { exact: true }).isChecked(),
           true,
         );
-        // Workers get the simplified form: no primary picker or free-text extras.
+        // Simplified form for everyone: no primary picker or free-text extras.
         assert.equal(
           await dialog
             .getByLabel("Weitere Tätigkeiten", { exact: true })
             .count(),
-          admin ? 1 : 0,
+          0,
         );
         await dialog.getByLabel("Stallarbeit", { exact: true }).check();
-        if (admin) {
-          assert.equal(
-            await dialog
-              .getByLabel("Weitere Tätigkeiten", { exact: true })
-              .inputValue(),
-            manual ? "" : "Vorheriger Text",
-          );
-          await dialog
-            .getByLabel("Haupttätigkeit (Stundensatz)", { exact: true })
-            .selectOption("two");
-          await dialog
-            .getByLabel("Weitere Tätigkeiten", { exact: true })
-            .fill("Zaun repariert\nWasser geprüft <script>text</script>");
-        } else {
+        if (!admin) {
           await dialog.getByLabel("Zeitausgleich", { exact: true }).check();
           await dialog.getByLabel("Notiz (optional)", { exact: true }).fill("");
         }
@@ -242,12 +229,12 @@ for (const width of [390, 1280])
         await dialog.waitFor({ state: "detached" });
         assert.equal(writes.length, 1);
         assert.deepEqual(writes[0].activity_ids, ["one", "two"]);
-        const text = admin
-          ? "Zaun repariert\nWasser geprüft <script>text</script>"
-          : "Vorheriger Text";
-        // Workers: the still-ticked primary stays; hidden saved text is resent unchanged.
-        assert.equal(writes[0].activity_id, admin ? "two" : "one");
-        assert.equal(writes[0].additional_activities, text);
+        // The still-ticked primary stays; saved text is resent unchanged (manual omits it).
+        assert.equal(writes[0].activity_id, "one");
+        assert.equal(
+          writes[0].additional_activities,
+          manual ? undefined : "Vorheriger Text",
+        );
         if (!admin) assert.equal(writes[0].day_type, "TIME_OFF");
         await page.reload();
         await open();
@@ -257,7 +244,7 @@ for (const width of [390, 1280])
         );
         assert.match(
           await page.getByRole("dialog").innerText(),
-          admin ? /Wasser geprüft <script>text<\/script>/ : /Vorheriger Text/,
+          /Vorheriger Text/,
         );
         assert.deepEqual(errors, []);
       } finally {

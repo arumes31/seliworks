@@ -528,7 +528,6 @@ export function Entries({
                 farm_id: form.get("farm_id"),
                 activity_id: form.get("activity_id"),
                 activity_ids: form.getAll("activity_ids"),
-                additional_activities: form.get("additional_activities"),
                 started_at: formInstant(form, "started_at"),
                 stopped_at: formInstant(form, "stopped_at"),
                 description: form.get("description"),

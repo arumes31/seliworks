@@ -40,9 +40,6 @@ export function WorkEditor({
           ? "REGULAR"
           : undefined),
   );
-  const [deduction, setDeduction] = useState(
-    (entry.additional_deduction_us ?? 0) / 60e6,
-  );
   const [detailsSaved, setDetailsSaved] = useState(false);
   async function save(form: FormData) {
     if (!dayType) throw new Error(t("dayTypeRequired"));
@@ -71,13 +68,8 @@ export function WorkEditor({
         throw new Error(t("invalidBreak"));
       breakUS += (Date.parse(b.stopped_at) - Date.parse(b.started_at)) * 1000;
     }
-    const deductionUS = Math.round(deduction * 60e6);
-    if (
-      !Number.isSafeInteger(deductionUS) ||
-      deductionUS < 0 ||
-      stop <= start ||
-      breakUS + deductionUS > (stop - start) * 1000
-    )
+    const deductionUS = entry.additional_deduction_us ?? 0;
+    if (stop <= start || breakUS + deductionUS > (stop - start) * 1000)
       throw new Error(t("invalidNet"));
     const body = {
       version,
@@ -87,26 +79,21 @@ export function WorkEditor({
       breaks: intervals,
       day_type: dayType,
       is_vacation_day: dayType === "VACATION",
-      additional_deduction_us: deductionUS,
       effective_stop: stopISO,
-      // Workers no longer see these fields; resend saved values so nothing is wiped.
+      // These fields are no longer in the form; resend saved values so nothing is wiped.
+      additional_deduction_us: deductionUS,
+      additional_activities: entry.additional_activities ?? "",
+      location: entry.location ?? "",
+      non_billable: entry.non_billable,
+      deduction_reason: entry.deduction_reason ?? "",
       ...(admin
         ? {
-            additional_activities: form.get("additional_activities"),
-            location: form.get("location"),
-            non_billable: form.get("non_billable") === "on",
-            deduction_reason: form.get("deduction_reason") || "",
             effective_start: startISO,
             farm_id: form.get("farm_id"),
             worker_id: form.get("worker_id"),
             reason: form.get("reason"),
           }
-        : {
-            additional_activities: entry.additional_activities ?? "",
-            location: entry.location ?? "",
-            non_billable: entry.non_billable,
-            deduction_reason: entry.deduction_reason ?? "",
-          }),
+        : {}),
     };
     const saved = await api<Work>(
       admin
@@ -168,7 +155,7 @@ export function WorkEditor({
           instant={entry.effective_stop || entry.stopped_at || entry.started_at}
         />
       </div>
-      <WorkActivities activities={activities} entry={entry} simple={!admin} />
+      <WorkActivities activities={activities} entry={entry} />
       <Field label={t("note")}>
         <textarea
           name="description"
@@ -177,15 +164,6 @@ export function WorkEditor({
           maxLength={4000}
         />
       </Field>
-      {admin && (
-        <Field label={t("location")}>
-          <input
-            name="location"
-            defaultValue={entry.location}
-            maxLength={300}
-          />
-        </Field>
-      )}
       <fieldset className="vacation-question">
         <legend>{t("dayType")}</legend>
         <p className="muted small">{t("dayTypeHint")}</p>
@@ -207,38 +185,6 @@ export function WorkEditor({
           )}
         </div>
       </fieldset>
-      {admin && (
-        <>
-          <Field label={t("additionalDeduction")}>
-            <input
-              name="additional_deduction_minutes"
-              type="number"
-              inputMode="decimal"
-              min={0}
-              step="0.01"
-              required
-              value={deduction}
-              onChange={(e) => setDeduction(e.target.valueAsNumber)}
-            />
-          </Field>
-          <Field label={t("deductionReason")}>
-            <textarea
-              name="deduction_reason"
-              defaultValue={entry.deduction_reason}
-              required={deduction > 0}
-              maxLength={2000}
-            />
-          </Field>
-          <label className="check">
-            <input
-              type="checkbox"
-              name="non_billable"
-              defaultChecked={entry.non_billable}
-            />
-            {t("nonBillable")}
-          </label>
-        </>
-      )}
       <div className="break-heading">
         <h3>{t("breaks")}</h3>
         <button
