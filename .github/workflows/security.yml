@@ -45,7 +45,13 @@ jobs:
         working-directory: web
         run: |
           npm ci --ignore-scripts
-          npm audit --audit-level=high
+          # Surgical allowlist for GHSA-fc5q-39xc-vjpf (picomatch ReDoS, dev/build-time
+          # only; no upstream patch as of 2026-11-17 — remove once picomatch publishes
+          # a version > 4.0.7). Still fails on any other high/critical advisory.
+          # See .github/scripts/audit-allowlist.cjs
+          npm audit --audit-level=high --json > audit.json || true
+          node "$GITHUB_WORKSPACE/.github/scripts/audit-allowlist.cjs" audit.json
+          rm -f audit.json
   container:
     name: Container vulnerability gate
     runs-on: ubuntu-24.04
