@@ -194,13 +194,8 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 	a.setSessionCookie(w, raw)
 	a.writeMe(w, r, authContext{u, csrf, digest(raw)})
 }
-
-// setCookie writes the session cookie. SameSite=Lax (not Strict) because iOS
-// home-screen apps can withhold Strict cookies when launched or reopened,
-// which signs users out; writes stay protected by the Origin check and the
-// per-session CSRF token in requireAuth.
 func (a *App) setCookie(w http.ResponseWriter, value string, age int) {
-	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: value, Path: "/", Secure: !a.Config.insecureDevelopmentHTTP(), HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: age})
+	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: value, Path: "/", Secure: !a.Config.insecureDevelopmentHTTP(), HttpOnly: true, SameSite: http.SameSiteStrictMode, MaxAge: age})
 }
 func (a *App) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

@@ -165,7 +165,8 @@ func (a *App) updateWorker(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	_, e = tx.Exec(r.Context(), `UPDATE users SET name=$2,email=$3,is_admin=$4,is_worker=$5,active=$6,version=version+1 WHERE id=$1`, id, next.Name, next.Email, next.IsAdmin, next.IsWorker, next.Active)
-	if e == nil {
+	// Revoke sessions only for security-relevant changes; a rename keeps the user signed in.
+	if e == nil && (next.Email != old.Email || next.IsAdmin != old.IsAdmin || next.IsWorker != old.IsWorker || next.Active != old.Active) {
 		_, e = tx.Exec(r.Context(), `DELETE FROM auth_sessions WHERE user_id=$1`, id)
 	}
 	if e == nil && in.Active != nil && !*in.Active {

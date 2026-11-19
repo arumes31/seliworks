@@ -62,7 +62,7 @@ func TestSessionSlidingRenewal(t *testing.T) {
 			t.Fatalf("status %d: %s", w.Code, w.Body)
 		}
 		c := sessionCookieFrom(w)
-		if c == nil || c.Value != raw || c.MaxAge != int(sessionTTL.Seconds()) || c.SameSite != http.SameSiteLaxMode {
+		if c == nil || c.Value != raw || c.MaxAge != int(sessionTTL.Seconds()) || c.SameSite != http.SameSiteStrictMode {
 			t.Fatalf("renewal cookie not reissued: %v", c)
 		}
 		if left := sessionRemaining(t, a, raw); left < sessionTTL-time.Minute {
@@ -125,4 +125,29 @@ func TestSessionSlidingRenewal(t *testing.T) {
 			t.Fatalf("expired session: %d %v", w.Code, sessionCookieFrom(w))
 		}
 	})
+}
+
+func TestSessionAdminEditRevocation(t *testing.T) {
+	a, admin := invitationSecurityFixture(t)
+	created := invitationSecurityOK(t, invitationSecurityCall(a, admin, a.createWorker, "", map[string]any{"name": "Phone worker", "email": "phone@example.test", "is_worker": true, "is_admin": false}))
+	id := created["id"].(string)
+	version := created["version"]
+	if _, err := a.DB.Exec(context.Background(), `UPDATE users SET active=true WHERE id=$1`, id); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.DB.QueryRow(context.Background(), `SELECT version FROM users WHERE id=$1`, id).Scan(&version); err != nil {
+		t.Fatal(err)
+	}
+	raw := insertRenewalSession(t, a, id, deviceClass(renewalPhoneUA), 20*24*time.Hour, 0)
+
+	// A rename is not security relevant and keeps the worker signed in.
+	renamed := invitationSecurityOK(t, invitationSecurityCall(a, admin, a.updateWorker, id, map[string]any{"version": version, "name": "Renamed worker"}))
+	if w := sessionMe(a, raw, renewalPhoneUA); w.Code != http.StatusOK {
+		t.Fatalf("rename revoked the session: %d", w.Code)
+	}
+	// Granting admin rights is, and signs the worker out everywhere.
+	invitationSecurityOK(t, invitationSecurityCall(a, admin, a.updateWorker, id, map[string]any{"version": renamed["version"], "is_admin": true}))
+	if w := sessionMe(a, raw, renewalPhoneUA); w.Code != http.StatusUnauthorized {
+		t.Fatalf("role change kept the session: %d", w.Code)
+	}
 }

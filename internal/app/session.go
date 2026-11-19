@@ -22,24 +22,22 @@ const (
 // deviceClass reduces a User-Agent to a coarse, version-free platform and
 // browser family. Sessions are bound to this value so a copied cookie cannot be
 // replayed from a different kind of device, while OS and browser updates on
-// the same device keep the session alive. iPadOS reports itself as macOS by
-// default, so iPad and Mac share one class.
+// the same device keep the session alive. Platforms are grouped so the
+// "Request Desktop Website" toggles do not change the class: iPhone, iPad and
+// Mac are all "apple" (iOS desktop mode reports macOS), and Android and Linux
+// are both "linux" (Android desktop mode reports X11 Linux).
 func deviceClass(userAgent string) string {
 	u := strings.ToLower(userAgent)
 	platform := "other"
 	switch {
-	case strings.Contains(u, "iphone") || strings.Contains(u, "ipod"):
-		platform = "ios"
-	case strings.Contains(u, "ipad") || strings.Contains(u, "macintosh") || strings.Contains(u, "mac os x"):
-		platform = "apple-desktop"
-	case strings.Contains(u, "android"):
-		platform = "android"
-	case strings.Contains(u, "cros"):
+	case strings.Contains(u, "iphone") || strings.Contains(u, "ipod") || strings.Contains(u, "ipad") || strings.Contains(u, "macintosh") || strings.Contains(u, "mac os x"):
+		platform = "apple"
+	case strings.Contains(u, "; cros "):
 		platform = "chromeos"
+	case strings.Contains(u, "android") || strings.Contains(u, "linux"):
+		platform = "linux"
 	case strings.Contains(u, "windows"):
 		platform = "windows"
-	case strings.Contains(u, "linux"):
-		platform = "linux"
 	}
 	browser := "other"
 	switch {
