@@ -19,6 +19,10 @@ type Config struct {
 	TOTPKey                                                          []byte
 	SMTPHost, SMTPPort, SMTPUsername, SMTPPassword, SMTPFrom         string
 	SMTPImplicitTLS, SMTPAllowInsecure                               bool
+	// HSTSProxyManaged disables the application's Strict-Transport-Security
+	// header when the TLS-terminating proxy already sends one, so browsers
+	// receive a single policy.
+	HSTSProxyManaged bool
 }
 
 func LoadConfig() (Config, error) {
@@ -47,6 +51,13 @@ func LoadConfig() (Config, error) {
 	c.SMTPUsername = os.Getenv("SMTP_USERNAME")
 	c.SMTPFrom = os.Getenv("SMTP_FROM")
 	c.SMTPImplicitTLS = os.Getenv("SMTP_IMPLICIT_TLS") == "true"
+	switch os.Getenv("HSTS_PROXY_MANAGED") {
+	case "", "false":
+	case "true":
+		c.HSTSProxyManaged = true
+	default:
+		return c, errors.New("HSTS_PROXY_MANAGED must be true or false")
+	}
 	if p := os.Getenv("SMTP_PASSWORD_FILE"); p != "" {
 		b, e := os.ReadFile(p)
 		if e != nil {

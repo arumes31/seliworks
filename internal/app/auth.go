@@ -104,13 +104,13 @@ func (a *App) clientIP(r *http.Request) string {
 	return ip.String()
 }
 func (a *App) limit(ctx context.Context, bucket string, maximum int) error {
-	var attempts int
-	e := a.DB.QueryRow(ctx, `INSERT INTO auth_limits(bucket,window_start,attempts) VALUES($1,clock_timestamp(),1) ON CONFLICT(bucket) DO UPDATE SET attempts=CASE WHEN auth_limits.window_start<clock_timestamp()-interval '15 minutes' THEN 1 ELSE auth_limits.attempts+1 END,window_start=CASE WHEN auth_limits.window_start<clock_timestamp()-interval '15 minutes' THEN clock_timestamp() ELSE auth_limits.window_start END RETURNING attempts`, digest(bucket)).Scan(&attempts)
+	var attempts, retryAfter int
+	e := a.DB.QueryRow(ctx, `INSERT INTO auth_limits(bucket,window_start,attempts) VALUES($1,clock_timestamp(),1) ON CONFLICT(bucket) DO UPDATE SET attempts=CASE WHEN auth_limits.window_start<clock_timestamp()-interval '15 minutes' THEN 1 ELSE auth_limits.attempts+1 END,window_start=CASE WHEN auth_limits.window_start<clock_timestamp()-interval '15 minutes' THEN clock_timestamp() ELSE auth_limits.window_start END RETURNING attempts,greatest(1,ceil(extract(epoch FROM window_start+interval '15 minutes'-clock_timestamp())))::int`, digest(bucket)).Scan(&attempts, &retryAfter)
 	if e != nil {
 		return e
 	}
 	if attempts > maximum {
-		return problem(429, "RATE_LIMIT", "Too many attempts. Try again in 15 minutes.")
+		return &Problem{Status: 429, Code: "RATE_LIMIT", Message: "Too many attempts. Try again in 15 minutes.", RetryAfter: retryAfter}
 	}
 	return nil
 }
