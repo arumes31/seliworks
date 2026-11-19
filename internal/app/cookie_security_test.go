@@ -86,10 +86,11 @@ func assertSecurityCookies(t *testing.T, a *App, secure bool) {
 	t.Helper()
 	for _, tc := range []struct {
 		name, path string
+		sameSite   http.SameSite
 		set        func(http.ResponseWriter, string, int)
 	}{
-		{"seliworks_session", "/", a.setCookie},
-		{"seliworks_passkey", "/api/v1", a.passkeyCookie},
+		{"seliworks_session", "/", http.SameSiteStrictMode, a.setCookie},
+		{"seliworks_passkey", "/api/v1", http.SameSiteStrictMode, a.passkeyCookie},
 	} {
 		for _, age := range []int{300, -1} {
 			w := httptest.NewRecorder()
@@ -99,7 +100,7 @@ func assertSecurityCookies(t *testing.T, a *App, secure bool) {
 				t.Fatalf("%s: got %d cookies", tc.name, len(cookies))
 			}
 			c := cookies[0]
-			if c.Name != tc.name || c.Path != tc.path || c.Value != "fixture" || c.MaxAge != age || c.Domain != "" || c.Secure != secure || !c.HttpOnly || c.SameSite != http.SameSiteStrictMode {
+			if c.Name != tc.name || c.Path != tc.path || c.Value != "fixture" || c.MaxAge != age || c.Domain != "" || c.Secure != secure || !c.HttpOnly || c.SameSite != tc.sameSite {
 				t.Errorf("%s: unexpected cookie flags: %s (want Secure=%v)", tc.name, c.String(), secure)
 			}
 		}
