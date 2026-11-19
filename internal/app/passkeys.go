@@ -424,12 +424,9 @@ func (a *App) finishPasskeyLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_, err = tx.Exec(r.Context(), `UPDATE passkeys SET credential=$2,last_used_at=clock_timestamp() WHERE credential_id=$1 AND user_id=$3`, credential.ID, mustJSON(credential), u.ID)
-	raw, csrf := token(), token()
-	if old, e := r.Cookie("seliworks_session"); e == nil && err == nil {
-		_, err = tx.Exec(r.Context(), `DELETE FROM auth_sessions WHERE token_hash=$1`, digest(old.Value))
-	}
+	var raw, csrf string
 	if err == nil {
-		_, err = tx.Exec(r.Context(), `INSERT INTO auth_sessions(token_hash,user_id,csrf_token,expires_at) VALUES($1,$2,$3,clock_timestamp()+interval '14 days')`, digest(raw), u.ID, csrf)
+		raw, csrf, err = createSession(r.Context(), tx, r, u.ID)
 	}
 	if err == nil {
 		err = a.audit(r.Context(), tx, u.ID, "auth.passkey_login", u.ID, nil, nil)
@@ -441,6 +438,6 @@ func (a *App) finishPasskeyLogin(w http.ResponseWriter, r *http.Request) {
 		handleError(w, r, err)
 		return
 	}
-	a.setCookie(w, raw, 14*86400)
+	a.setSessionCookie(w, raw)
 	a.writeMe(w, r, authContext{u.User, csrf, digest(raw)})
 }

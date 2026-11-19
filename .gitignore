@@ -27,6 +27,8 @@ backups/
 !internal/app/timesheet_integration_test.go
 !internal/app/report_day_boundary_test.go
 !internal/app/pause_history_test.go
+!internal/app/session_device_test.go
+!internal/app/session_renewal_test.go
 *.test.*
 *.spec.*
 web/test/*

@@ -180,14 +180,7 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 		handleError(w, r, e)
 		return
 	}
-	raw, csrf := token(), token()
-	if old, e := r.Cookie("seliworks_session"); e == nil {
-		if _, e = tx.Exec(r.Context(), `DELETE FROM auth_sessions WHERE token_hash=$1`, digest(old.Value)); e != nil {
-			handleError(w, r, e)
-			return
-		}
-	}
-	_, e = tx.Exec(r.Context(), `INSERT INTO auth_sessions(token_hash,user_id,csrf_token,expires_at) VALUES($1,$2,$3,clock_timestamp()+interval '14 days')`, digest(raw), u.ID, csrf)
+	raw, csrf, e := createSession(r.Context(), tx, r, u.ID)
 	if e == nil {
 		e = a.audit(r.Context(), tx, u.ID, "auth.login", u.ID, nil, nil)
 	}
@@ -198,22 +191,28 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 		handleError(w, r, e)
 		return
 	}
-	a.setCookie(w, raw, 14*86400)
+	a.setSessionCookie(w, raw)
 	a.writeMe(w, r, authContext{u, csrf, digest(raw)})
 }
+
+// setCookie writes the session cookie. SameSite=Lax (not Strict) because iOS
+// home-screen apps can withhold Strict cookies when launched or reopened,
+// which signs users out; writes stay protected by the Origin check and the
+// per-session CSRF token in requireAuth.
 func (a *App) setCookie(w http.ResponseWriter, value string, age int) {
-	http.SetCookie(w, &http.Cookie{Name: "seliworks_session", Value: value, Path: "/", Secure: !a.Config.insecureDevelopmentHTTP(), HttpOnly: true, SameSite: http.SameSiteStrictMode, MaxAge: age})
+	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: value, Path: "/", Secure: !a.Config.insecureDevelopmentHTTP(), HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: age})
 }
 func (a *App) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		cookie, e := r.Cookie("seliworks_session")
+		cookie, e := r.Cookie(sessionCookie)
 		if e != nil || len(cookie.Value) != 64 {
 			fail(w, r, 401, "UNAUTHENTICATED", "Please sign in")
 			return
 		}
 		var v authContext
+		var issuedDevice string
 		v.TokenHash = digest(cookie.Value)
-		e = a.DB.QueryRow(r.Context(), `SELECT u.id::text,u.name,u.email,u.is_admin,u.is_worker,u.active,u.language,u.theme,u.version,s.csrf_token FROM auth_sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>clock_timestamp() AND u.active`, v.TokenHash).Scan(&v.User.ID, &v.User.Name, &v.User.Email, &v.User.IsAdmin, &v.User.IsWorker, &v.User.Active, &v.User.Language, &v.User.Theme, &v.User.Version, &v.CSRF)
+		e = a.DB.QueryRow(r.Context(), `SELECT u.id::text,u.name,u.email,u.is_admin,u.is_worker,u.active,u.language,u.theme,u.version,s.csrf_token,s.device FROM auth_sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>clock_timestamp() AND u.active`, v.TokenHash).Scan(&v.User.ID, &v.User.Name, &v.User.Email, &v.User.IsAdmin, &v.User.IsWorker, &v.User.Active, &v.User.Language, &v.User.Theme, &v.User.Version, &v.CSRF, &issuedDevice)
 		if e == pgx.ErrNoRows {
 			fail(w, r, 401, "UNAUTHENTICATED", "Session expired. Please sign in.")
 			return
@@ -222,11 +221,25 @@ func (a *App) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 			handleError(w, r, e)
 			return
 		}
+		device := deviceClass(r.UserAgent())
+		if issuedDevice != "" && issuedDevice != device {
+			if e = a.revokeForeignDevice(r.Context(), v.TokenHash, v.User.ID, issuedDevice, device); e != nil {
+				handleError(w, r, e)
+				return
+			}
+			a.setCookie(w, "", -1)
+			fail(w, r, 401, "UNAUTHENTICATED", "Session expired. Please sign in.")
+			return
+		}
 		if r.Method != "GET" && r.Method != "HEAD" {
 			if !a.originOK(r) || subtle.ConstantTimeCompare([]byte(r.Header.Get("X-CSRF-Token")), []byte(v.CSRF)) != 1 {
 				fail(w, r, 403, "CSRF", "Refresh your session before saving")
 				return
 			}
+		}
+		if e = a.renewSession(r.Context(), w, cookie.Value, v.TokenHash, device); e != nil {
+			handleError(w, r, e)
+			return
 		}
 		next(w, r.WithContext(context.WithValue(r.Context(), authKey{}, v)))
 	}
