@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -26,10 +27,14 @@ type App struct {
 type Problem struct {
 	Status        int
 	Code, Message string
+	// RetryAfter, when positive, is sent as the Retry-After header in seconds.
+	RetryAfter int
 }
 
-func (p *Problem) Error() string                 { return p.Message }
-func problem(status int, code, msg string) error { return &Problem{status, code, msg} }
+func (p *Problem) Error() string { return p.Message }
+func problem(status int, code, msg string) error {
+	return &Problem{Status: status, Code: code, Message: msg}
+}
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
@@ -45,6 +50,9 @@ func handleError(w http.ResponseWriter, r *http.Request, err error) {
 	var pe *pgconn.PgError
 	switch {
 	case errors.As(err, &p):
+		if p.RetryAfter > 0 {
+			w.Header().Set("Retry-After", strconv.Itoa(p.RetryAfter))
+		}
 		fail(w, r, p.Status, p.Code, p.Message)
 	case errors.Is(err, pgx.ErrNoRows):
 		fail(w, r, 404, "NOT_FOUND", "Record not found")
@@ -134,7 +142,7 @@ func (a *App) Handler() http.Handler {
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("Permissions-Policy", "geolocation=(), camera=(), microphone=()")
 		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
-		if strings.HasPrefix(a.Config.AppURL, "https://") {
+		if strings.HasPrefix(a.Config.AppURL, "https://") && !a.Config.HSTSProxyManaged {
 			w.Header().Set("Strict-Transport-Security", "max-age=31536000")
 		}
 		if strings.HasPrefix(r.URL.Path, "/api/") {

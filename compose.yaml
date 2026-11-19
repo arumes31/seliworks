@@ -19,6 +19,7 @@ x-app: &app
     STATIC_DIR: /app/web/dist
     LISTEN_ADDR: :16540
     TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-}
+    HSTS_PROXY_MANAGED: ${HSTS_PROXY_MANAGED:-false}
     TZ: UTC
   secrets:
     - database_url

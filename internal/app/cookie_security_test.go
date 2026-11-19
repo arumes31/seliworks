@@ -7,7 +7,7 @@ import (
 )
 
 func TestCookieSecurityConfig(t *testing.T) {
-	for _, name := range []string{"DATABASE_URL_FILE", "TOTP_KEY_FILE", "SMTP_PASSWORD_FILE", "SMTP_HOST", "TRUSTED_PROXY_CIDRS"} {
+	for _, name := range []string{"DATABASE_URL_FILE", "TOTP_KEY_FILE", "SMTP_PASSWORD_FILE", "SMTP_HOST", "TRUSTED_PROXY_CIDRS", "HSTS_PROXY_MANAGED"} {
 		t.Setenv(name, "")
 	}
 	t.Setenv("DATABASE_URL", "postgres://example.invalid/seliworks")
@@ -104,5 +104,57 @@ func assertSecurityCookies(t *testing.T, a *App, secure bool) {
 				t.Errorf("%s: unexpected cookie flags: %s (want Secure=%v)", tc.name, c.String(), secure)
 			}
 		}
+	}
+}
+
+func TestCookieSecurityHSTSProxyManaged(t *testing.T) {
+	for _, name := range []string{"DATABASE_URL_FILE", "TOTP_KEY_FILE", "SMTP_PASSWORD_FILE", "SMTP_HOST", "TRUSTED_PROXY_CIDRS", "APP_ENV"} {
+		t.Setenv(name, "")
+	}
+	t.Setenv("DATABASE_URL", "postgres://example.invalid/seliworks")
+	t.Setenv("APP_URL", "https://work.example.com")
+	for _, tc := range []struct {
+		value string
+		hsts  bool
+		valid bool
+	}{
+		{"", true, true},
+		{"false", true, true},
+		{"true", false, true},
+		{"yes", false, false},
+	} {
+		t.Run("value="+tc.value, func(t *testing.T) {
+			t.Setenv("HSTS_PROXY_MANAGED", tc.value)
+			cfg, err := LoadConfig()
+			if !tc.valid {
+				if err == nil {
+					t.Fatal("invalid HSTS_PROXY_MANAGED accepted")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			w := httptest.NewRecorder()
+			(&App{Config: cfg}).Handler().ServeHTTP(w, httptest.NewRequest("GET", cfg.AppURL+"/api/not-found", nil))
+			if got := w.Header().Get("Strict-Transport-Security") != ""; got != tc.hsts {
+				t.Errorf("HSTS present = %v, want %v", got, tc.hsts)
+			}
+			// Proxy-managed HSTS never weakens session cookie flags.
+			assertSecurityCookies(t, &App{Config: cfg}, true)
+		})
+	}
+}
+
+func TestCookieSecurityRetryAfter(t *testing.T) {
+	w := httptest.NewRecorder()
+	handleError(w, httptest.NewRequest("POST", "/api/v1/auth/login", nil), &Problem{Status: 429, Code: "RATE_LIMIT", Message: "slow down", RetryAfter: 120})
+	if w.Code != 429 || w.Header().Get("Retry-After") != "120" {
+		t.Fatalf("status %d Retry-After %q", w.Code, w.Header().Get("Retry-After"))
+	}
+	w = httptest.NewRecorder()
+	handleError(w, httptest.NewRequest("GET", "/", nil), problem(409, "CONFLICT", "x"))
+	if w.Header().Get("Retry-After") != "" {
+		t.Fatal("Retry-After sent without a retry hint")
 	}
 }

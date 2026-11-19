@@ -92,6 +92,7 @@ Update `.env` before starting:
 | `PROXY_NETWORK`                     | Existing reverse-proxy network, such as `npm_default`                     |
 | `PROXY_ALIAS`                       | Internal application hostname; defaults to `seliworks`                    |
 | `TRUSTED_PROXY_CIDRS`               | Actual proxy addresses or narrowly scoped networks; never global networks |
+| `HSTS_PROXY_MANAGED`                | `true` when the proxy already sends HSTS, so only one policy is sent       |
 | `BOOTSTRAP_EMAIL`, `BOOTSTRAP_NAME` | Identity of the initial administrator                                     |
 | `BACKUP_DIR`                        | Local backup directory; defaults to `./backups`                           |
 | `SMTP_*`                            | Optional invoice delivery; an empty `SMTP_HOST` disables it               |
