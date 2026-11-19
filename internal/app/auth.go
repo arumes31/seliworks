@@ -217,7 +217,18 @@ func (a *App) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		device := deviceClass(r.UserAgent())
-		if issuedDevice != "" && issuedDevice != device {
+		if issuedDevice == "" {
+			issuedDevice, e = a.adoptDevice(r.Context(), v.TokenHash, device)
+			if e == pgx.ErrNoRows {
+				fail(w, r, 401, "UNAUTHENTICATED", "Session expired. Please sign in.")
+				return
+			}
+			if e != nil {
+				handleError(w, r, e)
+				return
+			}
+		}
+		if issuedDevice != device {
 			if e = a.revokeForeignDevice(r.Context(), v.TokenHash, v.User.ID, issuedDevice, device); e != nil {
 				handleError(w, r, e)
 				return
@@ -232,7 +243,7 @@ func (a *App) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 				return
 			}
 		}
-		if e = a.renewSession(r.Context(), w, cookie.Value, v.TokenHash, device); e != nil {
+		if e = a.renewSession(r.Context(), w, cookie.Value, v.TokenHash); e != nil {
 			handleError(w, r, e)
 			return
 		}

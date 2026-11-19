@@ -17,6 +17,12 @@ const (
 	// sessionRenewAfter throttles sliding renewal to at most one database write
 	// and Set-Cookie per session per this interval.
 	sessionRenewAfter = 12 * time.Hour
+	// sessionLifetime is what the database expiry and cookie Max-Age are set to
+	// on each renewal. The extra throttle window guarantees that a request which
+	// falls inside the throttle (and therefore does not renew) still leaves at
+	// least sessionTTL from that request: the effective idle lifetime is between
+	// 30 days and 30 days plus 12 hours.
+	sessionLifetime = sessionTTL + sessionRenewAfter
 )
 
 // deviceClass reduces a User-Agent to a coarse, version-free platform and
@@ -68,12 +74,12 @@ func createSession(ctx context.Context, tx pgx.Tx, r *http.Request, userID strin
 			return "", "", err
 		}
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO auth_sessions(token_hash,user_id,csrf_token,device,expires_at,renewed_at) VALUES($1,$2,$3,$4,clock_timestamp()+make_interval(secs=>$5),clock_timestamp())`, digest(raw), userID, csrf, deviceClass(r.UserAgent()), sessionTTL.Seconds())
+	_, err = tx.Exec(ctx, `INSERT INTO auth_sessions(token_hash,user_id,csrf_token,device,expires_at,renewed_at) VALUES($1,$2,$3,$4,clock_timestamp()+make_interval(secs=>$5),clock_timestamp())`, digest(raw), userID, csrf, deviceClass(r.UserAgent()), sessionLifetime.Seconds())
 	return raw, csrf, err
 }
 
 func (a *App) setSessionCookie(w http.ResponseWriter, raw string) {
-	a.setCookie(w, raw, int(sessionTTL.Seconds()))
+	a.setCookie(w, raw, int(sessionLifetime.Seconds()))
 }
 
 // revokeForeignDevice ends a session presented from a different device class
@@ -93,12 +99,22 @@ func (a *App) revokeForeignDevice(ctx context.Context, tokenHash, userID, issued
 	return tx.Commit(ctx)
 }
 
+// adoptDevice binds a session created before device binding to the device
+// presenting it and returns the stored device. The row lock serializes
+// concurrent first requests, so a second device sees the first one's binding
+// (and is revoked by the caller) instead of slipping through. Adoption also
+// marks the session for immediate renewal so its legacy cookie is reissued.
+func (a *App) adoptDevice(ctx context.Context, tokenHash, device string) (string, error) {
+	var stored string
+	err := a.DB.QueryRow(ctx, `UPDATE auth_sessions SET device=CASE WHEN device='' THEN $2 ELSE device END,renewed_at=CASE WHEN device='' THEN '-infinity'::timestamptz ELSE renewed_at END WHERE token_hash=$1 RETURNING device`, tokenHash, device).Scan(&stored)
+	return stored, err
+}
+
 // renewSession slides the session expiry forward on use, at most once per
 // sessionRenewAfter, and reissues the cookie so the browser keeps it as long
-// as the server does. Sessions created before device binding adopt the
-// current device on their first renewal.
-func (a *App) renewSession(ctx context.Context, w http.ResponseWriter, raw, tokenHash, device string) error {
-	tag, err := a.DB.Exec(ctx, `UPDATE auth_sessions SET expires_at=clock_timestamp()+make_interval(secs=>$2),renewed_at=clock_timestamp(),device=CASE WHEN device='' THEN $3 ELSE device END WHERE token_hash=$1 AND (renewed_at<clock_timestamp()-make_interval(secs=>$4) OR device='') AND expires_at>clock_timestamp()`, tokenHash, sessionTTL.Seconds(), device, sessionRenewAfter.Seconds())
+// as the server does.
+func (a *App) renewSession(ctx context.Context, w http.ResponseWriter, raw, tokenHash string) error {
+	tag, err := a.DB.Exec(ctx, `UPDATE auth_sessions SET expires_at=clock_timestamp()+make_interval(secs=>$2),renewed_at=clock_timestamp() WHERE token_hash=$1 AND renewed_at<clock_timestamp()-make_interval(secs=>$3) AND expires_at>clock_timestamp()`, tokenHash, sessionLifetime.Seconds(), sessionRenewAfter.Seconds())
 	if err != nil {
 		return err
 	}

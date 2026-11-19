@@ -62,11 +62,28 @@ func TestSessionSlidingRenewal(t *testing.T) {
 			t.Fatalf("status %d: %s", w.Code, w.Body)
 		}
 		c := sessionCookieFrom(w)
-		if c == nil || c.Value != raw || c.MaxAge != int(sessionTTL.Seconds()) || c.SameSite != http.SameSiteStrictMode {
+		if c == nil || c.Value != raw || c.MaxAge != int(sessionLifetime.Seconds()) || c.SameSite != http.SameSiteStrictMode {
 			t.Fatalf("renewal cookie not reissued: %v", c)
 		}
-		if left := sessionRemaining(t, a, raw); left < sessionTTL-time.Minute {
-			t.Fatalf("session expires in %s, want about %s", left, sessionTTL)
+		if left := sessionRemaining(t, a, raw); left < sessionLifetime-time.Minute {
+			t.Fatalf("session expires in %s, want about %s", left, sessionLifetime)
+		}
+	})
+
+	t.Run("use inside the throttle window still leaves 30 days", func(t *testing.T) {
+		// Last renewed just under the throttle ago: this request does not renew,
+		// but the session must still outlive it by at least sessionTTL.
+		almost := sessionRenewAfter - time.Minute
+		raw := insertRenewalSession(t, a, user.ID, phone, sessionLifetime-almost, almost)
+		w := sessionMe(a, raw, renewalPhoneUA)
+		if w.Code != http.StatusOK {
+			t.Fatalf("status %d: %s", w.Code, w.Body)
+		}
+		if c := sessionCookieFrom(w); c != nil {
+			t.Fatalf("unexpected renewal inside the throttle: %v", c)
+		}
+		if left := sessionRemaining(t, a, raw); left < sessionTTL {
+			t.Fatalf("session expires %s after its last use, want at least %s", left, sessionTTL)
 		}
 	})
 
@@ -96,10 +113,37 @@ func TestSessionSlidingRenewal(t *testing.T) {
 		if device != phone {
 			t.Fatalf("device %q, want %q", device, phone)
 		}
+		if left := sessionRemaining(t, a, raw); left < sessionLifetime-time.Minute {
+			t.Fatalf("adopted legacy session not renewed: %s", left)
+		}
+	})
+
+	t.Run("legacy session first used from two devices binds to one", func(t *testing.T) {
+		raw := insertRenewalSession(t, a, user.ID, "", 5*24*time.Hour, 0)
+		desktop := deviceClass(renewalDesktopUA)
+		results := make(chan int, 2)
+		for _, ua := range []string{renewalPhoneUA, renewalDesktopUA} {
+			go func(ua string) { results <- sessionMe(a, raw, ua).Code }(ua)
+		}
+		codes := map[int]int{<-results: 1}
+		codes[<-results]++
+		// One device wins the binding; the other is rejected, never both admitted.
+		if codes[http.StatusOK] != 1 || codes[http.StatusUnauthorized] != 1 {
+			t.Fatalf("concurrent first use codes %v, want one 200 and one 401", codes)
+		}
+		var device string
+		err := a.DB.QueryRow(context.Background(), `SELECT device FROM auth_sessions WHERE token_hash=$1`, digest(raw)).Scan(&device)
+		if err == nil && device != phone && device != desktop {
+			t.Fatalf("session bound to %q", device)
+		}
 	})
 
 	t.Run("cookie replayed from another device is revoked", func(t *testing.T) {
 		raw := insertRenewalSession(t, a, user.ID, phone, 20*24*time.Hour, 0)
+		var before int
+		if err := a.DB.QueryRow(context.Background(), `SELECT count(*) FROM audit_events WHERE action='auth.session_device_mismatch'`).Scan(&before); err != nil {
+			t.Fatal(err)
+		}
 		w := sessionMe(a, raw, renewalDesktopUA)
 		if w.Code != http.StatusUnauthorized {
 			t.Fatalf("foreign device status %d, want 401", w.Code)
@@ -114,7 +158,7 @@ func TestSessionSlidingRenewal(t *testing.T) {
 		if err := a.DB.QueryRow(context.Background(), `SELECT count(*) FROM audit_events WHERE action='auth.session_device_mismatch'`).Scan(&audited); err != nil {
 			t.Fatal(err)
 		}
-		if audited != 1 {
+		if audited-before != 1 {
 			t.Fatalf("device mismatch audit events %d, want 1", audited)
 		}
 	})
