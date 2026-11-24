@@ -22,7 +22,6 @@ export interface Organization {
   email: string;
   bank_details: string;
   tax_percent: string;
-  tax_confirmed: boolean;
   invoice_prefix: string;
   tax_identifier: string;
   invoice_footer: string;

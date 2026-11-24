@@ -45,7 +45,6 @@ export function Settings({ onChanged }: { onChanged: () => void }) {
                   "security_retention_days",
                 ])
                   body[key] = Number(form.get(key));
-                body.tax_confirmed = form.get("tax_confirmed") === "on";
                 body.invoice_appendix = form.get("invoice_appendix") === "on";
                 await api("/admin/settings", "PATCH", body);
                 await result.refresh();
@@ -132,14 +131,6 @@ export function Settings({ onChanged }: { onChanged: () => void }) {
                   defaultChecked={result.data.invoice_appendix}
                 />
                 {t("invoiceAppendix")}
-              </label>
-              <label className="check">
-                <input
-                  type="checkbox"
-                  name="tax_confirmed"
-                  defaultChecked={result.data.tax_confirmed}
-                />
-                {t("taxConfirmed")}
               </label>
               <div className="form-grid section-block">
                 <Field label={t("securityRetentionDays")}>

@@ -323,7 +323,6 @@ export const en = {
   organization: "Organization name",
   bank: "Bank details",
   tax: "Tax percentage",
-  taxConfirmed: "Tax treatment has been explicitly configured",
   prefix: "Invoice prefix",
   paymentDays: "Payment terms (days)",
   longHours: "Long-session reminder (hours)",
@@ -389,7 +388,7 @@ export const en = {
   noConnection: "Connection unavailable",
   records: "records",
   taxSetup:
-    "Confirm your organization identity, bank details and tax treatment before issuing invoices.",
+    "Confirm your organization identity, bank details before issuing invoices.",
   safety: "Time is recorded securely on your server.",
   allTime: "All time",
   deleteBreak: "Remove break",
@@ -763,7 +762,6 @@ export const de: Record<Key, string> = {
   organization: "Name der Organisation",
   bank: "Bankverbindung",
   tax: "Steuersatz in Prozent",
-  taxConfirmed: "Steuerliche Behandlung wurde ausdrücklich konfiguriert",
   prefix: "Rechnungspräfix",
   paymentDays: "Zahlungsziel (Tage)",
   longHours: "Erinnerung bei langer Arbeitszeit (Stunden)",
@@ -829,7 +827,7 @@ export const de: Record<Key, string> = {
   noConnection: "Verbindung nicht verfügbar",
   records: "Einträge",
   taxSetup:
-    "Prüfe Organisationsdaten, Bankverbindung und steuerliche Behandlung vor der Rechnungsausstellung.",
+    "Prüfe Organisationsdaten und Bankverbindung vor der Rechnungsausstellung.",
   safety: "Deine Zeit wird sicher auf deinem Server erfasst.",
   allTime: "Gesamter Zeitraum",
   deleteBreak: "Pause entfernen",
