@@ -619,7 +619,6 @@ func (a *App) saveSettings(w http.ResponseWriter, r *http.Request) {
 		Email                 string  `json:"email"`
 		Bank                  string  `json:"bank_details"`
 		Tax                   string  `json:"tax_percent"`
-		TaxConfirmed          bool    `json:"tax_confirmed"`
 		Prefix                string  `json:"invoice_prefix"`
 		PaymentDays           int     `json:"payment_days"`
 		LongHours             int     `json:"long_session_hours"`
@@ -657,7 +656,7 @@ func (a *App) saveSettings(w http.ResponseWriter, r *http.Request) {
 	e = tx.QueryRow(r.Context(), `SELECT to_jsonb(o) FROM organization o FOR UPDATE`).Scan(&before)
 	var raw []byte
 	if e == nil {
-		e = tx.QueryRow(r.Context(), `UPDATE organization SET name=$1,timezone=$2,currency=$3,address=$4,email=$5,bank_details=$6,tax_percent=$7,tax_confirmed=$8,invoice_prefix=$9,payment_days=$10,long_session_hours=$11,tax_identifier=coalesce($13,tax_identifier),invoice_footer=coalesce($14,invoice_footer),invoice_layout=coalesce($15,invoice_layout),invoice_appendix=coalesce($16,invoice_appendix),security_retention_days=coalesce($17,security_retention_days),retention_notes=coalesce($18,retention_notes),version=version+1 WHERE version=$12 RETURNING to_jsonb(organization)`, in.Name, in.Timezone, in.Currency, in.Address, in.Email, in.Bank, in.Tax, in.TaxConfirmed, in.Prefix, in.PaymentDays, in.LongHours, in.Version, in.TaxIdentifier, in.InvoiceFooter, in.InvoiceLayout, in.InvoiceAppendix, in.SecurityRetentionDays, in.RetentionNotes).Scan(&raw)
+		e = tx.QueryRow(r.Context(), `UPDATE organization SET name=$1,timezone=$2,currency=$3,address=$4,email=$5,bank_details=$6,tax_percent=$7,invoice_prefix=$8,payment_days=$9,long_session_hours=$10,tax_identifier=coalesce($12,tax_identifier),invoice_footer=coalesce($13,invoice_footer),invoice_layout=coalesce($14,invoice_layout),invoice_appendix=coalesce($15,invoice_appendix),security_retention_days=coalesce($16,security_retention_days),retention_notes=coalesce($17,retention_notes),version=version+1 WHERE version=$11 RETURNING to_jsonb(organization)`, in.Name, in.Timezone, in.Currency, in.Address, in.Email, in.Bank, in.Tax, in.Prefix, in.PaymentDays, in.LongHours, in.Version, in.TaxIdentifier, in.InvoiceFooter, in.InvoiceLayout, in.InvoiceAppendix, in.SecurityRetentionDays, in.RetentionNotes).Scan(&raw)
 		if e == pgx.ErrNoRows {
 			e = versionConflict()
 		}

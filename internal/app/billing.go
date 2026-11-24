@@ -23,7 +23,6 @@ type invoiceParty struct {
 	Timezone        string `json:"timezone"`
 	Currency        string `json:"currency"`
 	Tax             string `json:"tax_percent"`
-	TaxConfirmed    bool   `json:"tax_confirmed"`
 	Prefix          string `json:"invoice_prefix"`
 	PaymentDays     int    `json:"payment_days"`
 	Version         int64  `json:"version"`
@@ -231,9 +230,6 @@ func (a *App) createInvoice(w http.ResponseWriter, r *http.Request) {
 		}
 		if err := json.Unmarshal(issuerRaw, &org); err != nil {
 			return nil, err
-		}
-		if !org.TaxConfirmed {
-			return nil, problem(422, "TAX_SETUP_REQUIRED", "Confirm the organization's tax treatment before billing")
 		}
 		start, stop, err := localDateRange(in.From, in.To, org.Timezone)
 		if err != nil {

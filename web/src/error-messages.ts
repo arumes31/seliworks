@@ -114,8 +114,6 @@ const de: Record<string, string> = {
     "Die zugrunde liegende Arbeit hat sich geändert. Storniere den Entwurf und prüfe einen neuen.",
   STATE_CONFLICT:
     "Der Status hat sich geändert oder erlaubt diesen Vorgang nicht. Aktualisiere die Ansicht und prüfe den Eintrag.",
-  TAX_SETUP_REQUIRED:
-    "Bestätige vor der Verrechnung die steuerliche Behandlung der Organisation.",
   UNAUTHENTICATED: "Bitte melde dich erneut an.",
   UNAVAILABLE:
     "Der Vorgang konnte nicht bestätigt werden. Stelle die Verbindung wieder her und gleiche den Zustand vor einem erneuten Versuch ab.",
