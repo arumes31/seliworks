@@ -2,10 +2,7 @@ package app
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -72,55 +69,7 @@ type invoiceDocument struct {
 }
 
 func (a *App) billingCommand(w http.ResponseWriter, r *http.Request, operation string, payload any, fn func(pgx.Tx) (any, error)) {
-	key := r.Header.Get("Idempotency-Key")
-	if len(key) < 8 || len(key) > 200 {
-		fail(w, r, 422, "IDEMPOTENCY_REQUIRED", "Send an Idempotency-Key containing 8 to 200 characters")
-		return
-	}
-	raw, err := json.Marshal(payload)
-	if err != nil {
-		handleError(w, r, err)
-		return
-	}
-	sum := sha256.Sum256(raw)
-	fingerprint := hex.EncodeToString(sum[:])
-	ctx := r.Context()
-	tx, err := a.DB.Begin(ctx)
-	if err != nil {
-		handleError(w, r, err)
-		return
-	}
-	defer tx.Rollback(ctx)
-	_, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, actor(r).ID+":"+operation+":"+key)
-	if err != nil {
-		handleError(w, r, err)
-		return
-	}
-	var previous string
-	var result []byte
-	err = tx.QueryRow(ctx, `SELECT fingerprint,result FROM commands WHERE actor_id=$1 AND operation=$2 AND key=$3`, actor(r).ID, operation, key).Scan(&previous, &result)
-	if err == nil {
-		if previous != fingerprint {
-			fail(w, r, 409, "IDEMPOTENCY_CONFLICT", "This key was already used for different request content")
-			return
-		}
-		writeJSON(w, 200, json.RawMessage(result))
-		return
-	}
-	if !errors.Is(err, pgx.ErrNoRows) {
-		handleError(w, r, err)
-		return
-	}
-	value, err := fn(tx)
-	if err == nil {
-		result, err = json.Marshal(value)
-	}
-	if err == nil {
-		_, err = tx.Exec(ctx, `INSERT INTO commands(actor_id,operation,key,fingerprint,result) VALUES($1,$2,$3,$4,$5)`, actor(r).ID, operation, key, fingerprint, result)
-	}
-	if err == nil {
-		err = tx.Commit(ctx)
-	}
+	value, err := a.command(r, operation, payload, fn)
 	if err != nil {
 		handleError(w, r, err)
 		return

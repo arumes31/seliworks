@@ -63,8 +63,8 @@ jobs:
           npm ci
           npm run build
           npx --no-install playwright install --with-deps chromium
-      - name: Verify account-security revocation with PostgreSQL and race detection
-        run: go test -tags integration -race ./internal/app -run '^Test(InvitationSecurity|GermanActivitiesMigration|DeleteWork|Passkeys|FarmAssignments|Timesheet|WorkActivities|PauseHistory|WorkerStamping|TimeOff|ManualEntryDayType|RetentionIncludes|SessionSlidingRenewal|SessionAdminEditRevocation|RateLimitRetryAfter)' -count=1 -v
+      - name: Run PostgreSQL integration tests with race detection
+        run: go test -tags integration -race ./internal/app -count=1 -v
   source:
     name: Source build and static checks
     runs-on: ubuntu-24.04
@@ -108,12 +108,8 @@ jobs:
           SELIWORKS_BROWSER=firefox node --test test/work-activities.browser.mjs
       - name: Build Go application
         run: go build -trimpath -o /tmp/seliworks ./cmd/seliworks
-      - name: Verify cookie security and HTTPS configuration
-        run: go test -race ./internal/app -run '^Test(CookieSecurity|DeviceClass)' -count=1
-      - name: Verify invoice PDF pagination
-        run: go test -race ./internal/app -run '^Test(InvoicePDF|Timesheet)' -count=1
-      - name: Verify report day boundaries across DST gaps
-        run: go test -race ./internal/app -run '^TestReportDayBoundary' -count=1
+      - name: Run unit tests
+        run: go test -race ./internal/app -count=1
       - name: Validate production and development Compose
         env:
           APP_URL: https://work.example.com

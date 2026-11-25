@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -77,13 +78,9 @@ func (a *App) cleanupRetention(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
-		deleted := map[string]int64{}
-		for _, relation := range retentionRelations {
-			tag, err := tx.Exec(r.Context(), `DELETE FROM `+relation.table+` WHERE `+relation.timestamp+`<$1`, state["cutoff"])
-			if err != nil {
-				return nil, err
-			}
-			deleted[relation.table] = tag.RowsAffected()
+		deleted, err := deleteExpired(r.Context(), tx, state["cutoff"])
+		if err != nil {
+			return nil, err
 		}
 		state["deleted"] = deleted
 		if err = a.audit(r.Context(), tx, actor(r).ID, "retention.security_cleaned", "organization", nil, state); err != nil {
@@ -96,4 +93,59 @@ func (a *App) cleanupRetention(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, 200, value)
+}
+
+func deleteExpired(ctx context.Context, tx pgx.Tx, cutoff any) (map[string]int64, error) {
+	deleted := map[string]int64{}
+	for _, relation := range retentionRelations {
+		tag, err := tx.Exec(ctx, `DELETE FROM `+relation.table+` WHERE `+relation.timestamp+`<$1`, cutoff)
+		if err != nil {
+			return nil, err
+		}
+		deleted[relation.table] = tag.RowsAffected()
+	}
+	return deleted, nil
+}
+
+// purgeExpired applies the configured retention without an administrator, so
+// these tables stop growing on installs where nobody runs the manual cleanup.
+func (a *App) purgeExpired(ctx context.Context) (map[string]int64, error) {
+	tx, err := a.DB.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+	state, err := retentionState(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	deleted, err := deleteExpired(ctx, tx, state["cutoff"])
+	if err != nil {
+		return nil, err
+	}
+	var total int64
+	for _, n := range deleted {
+		total += n
+	}
+	if total > 0 {
+		state["deleted"] = deleted
+		if err = a.audit(ctx, tx, "", "retention.security_cleaned_automatically", "organization", nil, state); err != nil {
+			return nil, err
+		}
+	}
+	return deleted, tx.Commit(ctx)
+}
+
+// RunRetention purges expired security data at startup and then daily.
+func (a *App) RunRetention(ctx context.Context) {
+	for {
+		if _, err := a.purgeExpired(ctx); err != nil && ctx.Err() == nil {
+			slog.Error("retention cleanup failed", "type", errorClass(err))
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(24 * time.Hour):
+		}
+	}
 }

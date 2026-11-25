@@ -619,6 +619,7 @@ func (a *App) saveSettings(w http.ResponseWriter, r *http.Request) {
 		Email                 string  `json:"email"`
 		Bank                  string  `json:"bank_details"`
 		Tax                   string  `json:"tax_percent"`
+		TaxConfirmed          bool    `json:"tax_confirmed"` // ignored: still sent by clients from before #81
 		Prefix                string  `json:"invoice_prefix"`
 		PaymentDays           int     `json:"payment_days"`
 		LongHours             int     `json:"long_session_hours"`
