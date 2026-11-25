@@ -2,7 +2,6 @@ package app
 
 import (
 	"net/http"
-	"strings"
 	"time"
 )
 
@@ -123,11 +122,4 @@ func (a *App) setupAccount(w http.ResponseWriter, r *http.Request) {
 	}
 	a.setCookie(w, "", -1)
 	writeJSON(w, 200, map[string]bool{"ok": true})
-}
-func setupTokenFromURL(s string) string {
-	parts := strings.Split(s, "/#setup/")
-	if len(parts) != 2 {
-		return ""
-	}
-	return parts[1]
 }

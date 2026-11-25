@@ -180,16 +180,6 @@ func unclaimedIntervals(start, stop time.Time, claims []priceInterval) []priceIn
 	}
 	return parts
 }
-func calculatePrice(start, stop time.Time, breaks []priceInterval, rules []priceRule, nonBillable bool) (PriceSnapshot, error) {
-	return calculateAdjustedPrice(start, stop, breaks, rules, nonBillable, 0, false)
-}
-func calculateAdjustedPrice(start, stop time.Time, breaks []priceInterval, rules []priceRule, nonBillable bool, deduction int64, vacation bool) (PriceSnapshot, error) {
-	dayType := "REGULAR"
-	if vacation {
-		dayType = "VACATION"
-	}
-	return calculatePolicyPrice(start, stop, breaks, rules, nonBillable, deduction, dayType, nil)
-}
 func calculatePolicyPrice(start, stop time.Time, breaks []priceInterval, rules []priceRule, nonBillable bool, deduction int64, dayType string, policy *DayPricingPolicy) (PriceSnapshot, error) {
 	if dayType == "" {
 		dayType = "REGULAR"

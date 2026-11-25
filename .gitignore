@@ -30,6 +30,10 @@ backups/
 !internal/app/session_device_test.go
 !internal/app/session_renewal_test.go
 !internal/app/rate_limit_test.go
+!internal/app/pricing_test.go
+!internal/app/billing_integration_test.go
+!internal/app/totp_test.go
+!internal/app/retention_test.go
 *.test.*
 *.spec.*
 web/test/*

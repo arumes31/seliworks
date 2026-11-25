@@ -295,3 +295,11 @@ func TestInvitationSecurityConcurrentDeactivation(t *testing.T) {
 		t.Fatal(fmt.Errorf("concurrent setup restored deactivated user: %v", err))
 	}
 }
+
+func setupTokenFromURL(s string) string {
+	parts := strings.Split(s, "/#setup/")
+	if len(parts) != 2 {
+		return ""
+	}
+	return parts[1]
+}

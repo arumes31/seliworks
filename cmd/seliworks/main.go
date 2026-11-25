@@ -64,6 +64,7 @@ func run() error {
 	if e = app.SchemaReady(ctx, db); e != nil {
 		return errors.New("schema missing or outdated: run migrate before serve")
 	}
+	go a.RunRetention(ctx)
 	if c.SMTPHost != "" {
 		go a.RunMail(ctx)
 	}
