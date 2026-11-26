@@ -101,7 +101,9 @@ const de: Record<string, string> = {
     "Die Freigaben verwenden unterschiedliche Währungen oder Steuerbehandlungen. Wähle getrennte Leistungszeiträume.",
   RATE_LIMIT: "Zu viele Versuche. Versuche es in 15 Minuten erneut.",
   RATE_REQUIRED:
-    "Ergänze den fehlenden Stundensatz und gib die Arbeit ausdrücklich erneut frei.",
+    "Für diese freigegebene Arbeit gibt es keinen passenden Stundensatz. Lege einen Stundensatz an, der sie abdeckt.",
+  APPROVAL_RATE_REQUIRED:
+    "Für diese Arbeit gibt es noch keinen Stundensatz. Lege zuerst einen Stundensatz für diesen Kunden und Mitarbeiter an.",
   REASON_REQUIRED:
     "Für diesen Vorgang ist eine nachvollziehbare Begründung erforderlich.",
   RECIPIENT_REQUIRED:

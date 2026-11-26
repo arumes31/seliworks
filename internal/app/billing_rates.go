@@ -95,6 +95,9 @@ func (a *App) saveRate(w http.ResponseWriter, r *http.Request) {
 		if err == nil {
 			err = a.audit(r.Context(), tx, actor(r).ID, "rate.saved", id, prior, in)
 		}
+		if err == nil {
+			err = a.repriceApproved(r.Context(), tx, actor(r).ID, "rate.saved", "true")
+		}
 	}
 	if err == nil {
 		err = tx.Commit(r.Context())

@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -356,4 +357,55 @@ func loadPriceBreaks(ctx context.Context, q querier, id string) ([]priceInterval
 		out = append(out, b)
 	}
 	return out, rows.Err()
+}
+
+// repriceApproved gives approved work that is not on an invoice yet the current rates, so a rate
+// saved later also applies to older entries. filter is an SQL condition on work_sessions s.
+func (a *App) repriceApproved(ctx context.Context, tx pgx.Tx, actorID, reason, filter string, args ...any) error {
+	rows, err := tx.Query(ctx, `SELECT s.id::text,s.version,p.snapshot FROM work_sessions s JOIN approvals p ON p.session_id=s.id AND p.source_version=s.version WHERE s.state='APPROVED' AND NOT EXISTS(SELECT 1 FROM invoice_allocations al WHERE al.session_id=s.id AND al.active) AND (`+filter+`) ORDER BY s.id FOR UPDATE OF s`, args...)
+	if err != nil {
+		return err
+	}
+	type approved struct {
+		id       string
+		version  int64
+		snapshot []byte
+	}
+	list := []approved{}
+	for rows.Next() {
+		var v approved
+		if err = rows.Scan(&v.id, &v.version, &v.snapshot); err != nil {
+			rows.Close()
+			return err
+		}
+		list = append(list, v)
+	}
+	rows.Close()
+	if err = rows.Err(); err != nil {
+		return err
+	}
+	for _, v := range list {
+		snapshot, err := a.pricingSnapshot(ctx, tx, v.id)
+		if err != nil {
+			return err
+		}
+		raw := mustJSON(snapshot)
+		var same bool
+		if err = tx.QueryRow(ctx, `SELECT $1::jsonb=$2::jsonb`, v.snapshot, raw).Scan(&same); err != nil {
+			return err
+		}
+		if same {
+			continue
+		}
+		if _, err = tx.Exec(ctx, `INSERT INTO approvals(session_id,source_version,actor_id,snapshot) VALUES($1,$2,$3,$4)`, v.id, v.version+1, actorID, raw); err != nil {
+			return err
+		}
+		if _, err = tx.Exec(ctx, `UPDATE work_sessions SET version=version+1,updated_at=clock_timestamp() WHERE id=$1`, v.id); err != nil {
+			return err
+		}
+		if err = a.audit(ctx, tx, actorID, "work.repriced", v.id, json.RawMessage(v.snapshot), map[string]any{"snapshot": snapshot, "reason": reason}); err != nil {
+			return err
+		}
+	}
+	return nil
 }

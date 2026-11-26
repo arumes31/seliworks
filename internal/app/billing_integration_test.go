@@ -308,3 +308,74 @@ func TestPostgresRateOverlapConstraint(t *testing.T) {
 		t.Fatal("overlapping organization rate accepted")
 	}
 }
+
+func TestUnpricedWorkProblemNamesEntriesInLocalTime(t *testing.T) {
+	at := func(s string) time.Time { v, _ := time.Parse(time.RFC3339, s); return v }
+	err := unpricedWorkProblem([]unpricedWork{
+		{at("2026-11-05T09:00:00Z"), "Bea"},
+		{at("2026-11-03T17:00:00Z"), "Sebastian Gierlinger"},
+		{at("2026-11-05T09:00:00Z"), "Anna"},
+	}, "Europe/Vienna")
+	p, ok := err.(*Problem)
+	if !ok || p.Status != 422 || p.Code != "RATE_REQUIRED" {
+		t.Fatalf("problem = %#v", err)
+	}
+	if want := "03.11.2026 18:00 Sebastian Gierlinger; 05.11.2026 10:00 Bea; 05.11.2026 10:00 Anna"; p.Detail != want {
+		t.Fatalf("detail = %q, want %q", p.Detail, want)
+	}
+}
+
+func TestPostgresRatesApplyToOlderApprovedWork(t *testing.T) {
+	a, user, farm := billingTestApp(t)
+	ctx := context.Background()
+	work := func(state, start, stop string, version int) string {
+		var id string
+		if err := a.DB.QueryRow(ctx, `INSERT INTO work_sessions(worker_id,farm_id,activity_id,started_at,stopped_at,effective_start,effective_stop,state,description,version,created_by,updated_at) SELECT $1,$2,id,$3,$4,$3,$4,$5,'Werkstatt',$6,$1,clock_timestamp() FROM activities LIMIT 1 RETURNING work_sessions.id::text`, user.ID, farm, start, stop, state, version).Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		return id
+	}
+	// Approved before any rate existed, as happened before approval required a rate.
+	old := work("APPROVED", "2026-03-03T17:00:00Z", "2026-03-03T20:00:00Z", 2)
+	tx, err := a.DB.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := a.pricingSnapshot(ctx, tx, old)
+	if err == nil {
+		_, err = tx.Exec(ctx, `INSERT INTO approvals(session_id,source_version,actor_id,snapshot) VALUES($1,2,$2,$3)`, old, user.ID, mustJSON(snapshot))
+	}
+	if err == nil {
+		err = tx.Commit(ctx)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	submitted := work("SUBMITTED", "2026-03-05T17:00:00Z", "2026-03-05T18:00:00Z", 1)
+	rec := billingRequest(t, a, user, a.approve, "/api/v1/admin/work-sessions/"+submitted+"/approve", submitted, "approve-1", `{"version":1}`)
+	if rec.Code != 422 || !strings.Contains(rec.Body.String(), "APPROVAL_RATE_REQUIRED") {
+		t.Fatalf("approval without rate = %d %s", rec.Code, rec.Body)
+	}
+
+	rate := fmt.Sprintf(`{"worker_id":%q,"farm_id":%q,"hourly_rate":"18","effective_from":"2026-01-01T00:00:00Z","version":0}`, user.ID, farm)
+	if rec = billingRequest(t, a, user, a.saveRate, "/api/v1/admin/rates", "", "rate-1", rate); rec.Code != 200 {
+		t.Fatalf("save rate = %d %s", rec.Code, rec.Body)
+	}
+	var priced, net string
+	var version int64
+	if err = a.DB.QueryRow(ctx, `SELECT p.snapshot->>'priced',p.snapshot->>'net',s.version FROM work_sessions s JOIN approvals p ON p.session_id=s.id AND p.source_version=s.version WHERE s.id=$1`, old).Scan(&priced, &net, &version); err != nil {
+		t.Fatal(err)
+	}
+	if priced != "true" || net != "54.00" || version != 3 {
+		t.Fatalf("older work after rate save: priced=%s net=%s version=%d", priced, net, version)
+	}
+
+	if rec = billingRequest(t, a, user, a.approve, "/api/v1/admin/work-sessions/"+submitted+"/approve", submitted, "approve-2", `{"version":1}`); rec.Code != 200 {
+		t.Fatalf("approval with rate = %d %s", rec.Code, rec.Body)
+	}
+	body := fmt.Sprintf(`{"farm_id":%q,"from":"2026-03-01","to":"2026-04-01"}`, farm)
+	if rec = billingRequest(t, a, user, a.createInvoice, "/api/v1/admin/invoices", "", "invoice-1", body); rec.Code != 200 {
+		t.Fatalf("create invoice = %d %s", rec.Code, rec.Body)
+	}
+}

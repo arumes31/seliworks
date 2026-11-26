@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -187,6 +188,9 @@ func (a *App) createInvoice(w http.ResponseWriter, r *http.Request) {
 		if err = tx.QueryRow(ctx, `SELECT to_jsonb(f) FROM farms f WHERE id=$1 FOR UPDATE`, in.FarmID).Scan(&customerRaw); err != nil {
 			return nil, err
 		}
+		if err = a.repriceApproved(ctx, tx, actor(r).ID, "invoice.create", `s.farm_id=$1 AND NOT s.non_billable AND s.effective_start<$3 AND s.effective_stop>$2`, in.FarmID, start, stop); err != nil {
+			return nil, err
+		}
 		rows, err := tx.Query(ctx, `SELECT s.id::text,s.version,s.effective_start,s.effective_stop,s.description,u.name,ac.name,concat_ws(E'\n',CASE WHEN cardinality(wa.names)>1 THEN array_to_string(wa.names,', ') END,nullif(s.additional_activities,'')),p.snapshot FROM work_sessions s JOIN users u ON u.id=s.worker_id JOIN activities ac ON ac.id=s.activity_id JOIN approvals p ON p.session_id=s.id AND p.source_version=s.version `+workActivitiesJoin+` WHERE s.farm_id=$1 AND s.state='APPROVED' AND NOT s.non_billable AND s.effective_start<$3 AND s.effective_stop>$2 ORDER BY s.id FOR UPDATE OF s`, in.FarmID, start, stop)
 		if err != nil {
 			return nil, err
@@ -225,6 +229,7 @@ func (a *App) createInvoice(w http.ResponseWriter, r *http.Request) {
 		var total int64
 		allocationCount := 0
 		approvalTax, approvalCurrency := "", ""
+		unpriced := []unpricedWork{}
 		for _, s := range sources {
 			x, y := clippedInterval(s.start, s.stop, start, stop)
 			claimedRows, e := tx.Query(ctx, `SELECT started_at,stopped_at FROM invoice_allocations WHERE session_id=$1 AND active AND started_at<$3 AND stopped_at>$2 ORDER BY started_at`, s.id, x, y)
@@ -261,7 +266,8 @@ func (a *App) createInvoice(w http.ResponseWriter, r *http.Request) {
 				if pricing.UnpricedReason == "HOLIDAY_POLICY_REQUIRED" {
 					return nil, problem(422, "HOLIDAY_POLICY_REQUIRED", "Public-holiday billing is awaiting an explicitly configured surcharge policy. Configure and review that policy before billing this work")
 				}
-				return nil, problem(422, "RATE_REQUIRED", "Approved work needs pricing. Add the missing rate and explicitly approve it again")
+				unpriced = append(unpriced, unpricedWork{s.start, s.worker})
+				continue
 			}
 			if approvalTax == "" {
 				approvalTax, approvalCurrency = pricing.TaxPercent, pricing.Currency
@@ -290,6 +296,9 @@ func (a *App) createInvoice(w http.ResponseWriter, r *http.Request) {
 				total += cents
 				allocationCount++
 			}
+		}
+		if len(unpriced) > 0 {
+			return nil, unpricedWorkProblem(unpriced, org.Timezone)
 		}
 		if allocationCount == 0 {
 			return nil, problem(409, "WORK_RESERVED", "All eligible work in this period is already reserved or invoiced")
@@ -522,4 +531,23 @@ func (a *App) addPayment(w http.ResponseWriter, r *http.Request) {
 		}
 		return invoiceFrom(ctx, tx, id)
 	})
+}
+
+type unpricedWork struct {
+	start  time.Time
+	worker string
+}
+
+// unpricedWorkProblem names each work entry approved without a price, so the admin knows which one to approve again.
+func unpricedWorkProblem(work []unpricedWork, timezone string) error {
+	location, err := time.LoadLocation(timezone)
+	if err != nil {
+		location = time.UTC
+	}
+	slices.SortFunc(work, func(a, b unpricedWork) int { return a.start.Compare(b.start) })
+	entries := make([]string, len(work))
+	for i, w := range work {
+		entries[i] = w.start.In(location).Format("02.01.2006 15:04") + " " + w.worker
+	}
+	return &Problem{Status: 422, Code: "RATE_REQUIRED", Message: "No hourly rate covers this approved work. Add a rate that covers it", Detail: strings.Join(entries, "; ")}
 }
