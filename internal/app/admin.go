@@ -362,6 +362,9 @@ func (a *App) approve(w http.ResponseWriter, r *http.Request) {
 	if e == nil {
 		snapshot, e = a.pricingSnapshot(r.Context(), tx, id)
 	}
+	if s, ok := snapshot.(PriceSnapshot); e == nil && ok && !s.NonBillable && !s.Priced && s.UnpricedReason == "" {
+		e = problem(422, "APPROVAL_RATE_REQUIRED", "No hourly rate covers this work. Add a rate for this customer and worker before approving")
+	}
 	if e == nil {
 		_, e = tx.Exec(r.Context(), `INSERT INTO approvals(session_id,source_version,actor_id,snapshot) VALUES($1,$2,$3,$4)`, id, version+1, actor(r).ID, mustJSON(snapshot))
 	}

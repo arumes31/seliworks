@@ -111,10 +111,12 @@ export interface List<T> {
 export class APIError extends Error {
   status: number;
   code: string;
-  constructor(status: number, message: string, code: string) {
+  detail: string;
+  constructor(status: number, message: string, code: string, detail = "") {
     super(message);
     this.status = status;
     this.code = code;
+    this.detail = detail;
   }
 }
 let csrf = "";
@@ -150,7 +152,7 @@ export async function api<T>(
       body: payload,
     });
     let value: {
-      error?: { message?: string; code?: string };
+      error?: { message?: string; code?: string; detail?: string };
     } | null = null;
     if (response.status !== 204) {
       try {
@@ -170,6 +172,7 @@ export async function api<T>(
         response.status,
         value?.error?.message ?? `HTTP ${response.status}`,
         value?.error?.code ?? "http_error",
+        value?.error?.detail,
       );
     return value as T;
   } catch (error) {
@@ -196,8 +199,10 @@ export function errorText(
     ? "de"
     : document.documentElement.lang,
 ) {
-  if (error instanceof APIError)
-    return localizedAPIError(error.code, error.message, language);
+  if (error instanceof APIError) {
+    const text = localizedAPIError(error.code, error.message, language);
+    return error.detail ? `${text} (${error.detail})` : text;
+  }
   return error instanceof Error ? error.message : String(error);
 }
 // Currency values remain decimal strings; grouping and currency placement never coerce them to binary floats.

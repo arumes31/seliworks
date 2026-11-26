@@ -166,6 +166,9 @@ func TestAdditionalDeductionIntegerRemainderAndVacationPolicy(t *testing.T) {
 	if s.Priced || !s.VacationDay || s.UnpricedReason != "VACATION_POLICY_REQUIRED" {
 		t.Fatalf("invented vacation price %+v", s)
 	}
+	if s, err = calculateAdjustedPrice(start, start.Add(time.Hour), nil, nil, false, 0, true); err != nil || s.Priced || s.UnpricedReason != "" {
+		t.Fatalf("missing rate must win over missing vacation policy %+v %v", s, err)
+	}
 	if _, err = calculateAdjustedPrice(start, stop, nil, nil, false, 4, false); err == nil {
 		t.Fatal("excess deduction accepted")
 	}

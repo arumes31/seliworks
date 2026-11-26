@@ -27,6 +27,8 @@ type App struct {
 type Problem struct {
 	Status        int
 	Code, Message string
+	// Detail is language-neutral data, such as dates and names, shown after the localized message.
+	Detail string
 	// RetryAfter, when positive, is sent as the Retry-After header in seconds.
 	RetryAfter int
 }
@@ -43,7 +45,14 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	}
 }
 func fail(w http.ResponseWriter, r *http.Request, status int, code, msg string) {
-	writeJSON(w, status, map[string]any{"error": map[string]string{"code": code, "message": msg}, "request_id": w.Header().Get("X-Request-ID")})
+	failDetail(w, r, status, code, msg, "")
+}
+func failDetail(w http.ResponseWriter, r *http.Request, status int, code, msg, detail string) {
+	e := map[string]string{"code": code, "message": msg}
+	if detail != "" {
+		e["detail"] = detail
+	}
+	writeJSON(w, status, map[string]any{"error": e, "request_id": w.Header().Get("X-Request-ID")})
 }
 func handleError(w http.ResponseWriter, r *http.Request, err error) {
 	var p *Problem
@@ -53,7 +62,7 @@ func handleError(w http.ResponseWriter, r *http.Request, err error) {
 		if p.RetryAfter > 0 {
 			w.Header().Set("Retry-After", strconv.Itoa(p.RetryAfter))
 		}
-		fail(w, r, p.Status, p.Code, p.Message)
+		failDetail(w, r, p.Status, p.Code, p.Message, p.Detail)
 	case errors.Is(err, pgx.ErrNoRows):
 		fail(w, r, 404, "NOT_FOUND", "Record not found")
 	case errors.As(err, &pe) && pe.Code == "23P01":

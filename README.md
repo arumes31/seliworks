@@ -244,7 +244,7 @@ Replace the health-check hostname with your domain. Request failures include a s
 
 Temporarily set `LOG_LEVEL=debug` to inspect client-cancelled requests. Timeouts are logged as warnings. After an interrupted write, refresh the actual state before retrying the operation.
 
-Configure organization details, tax settings, hourly rates, and vacation/public-holiday policies before issuing invoices.
+Configure organization details, tax settings, hourly rates, and vacation/public-holiday policies before issuing invoices. Work can only be approved once an hourly rate covers it. Saving a rate re-prices approved work that is not yet on an invoice, and creating an invoice applies the current rates and policies to the work it includes; work already on an invoice keeps its price.
 
 ## Development
 

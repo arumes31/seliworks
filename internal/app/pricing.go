@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -243,7 +244,8 @@ func calculatePolicyPrice(start, stop time.Time, breaks []priceInterval, rules [
 		return s, problem(422, "AMOUNT_TOO_LARGE", "Calculated charges exceed the supported range. Review the hourly rate and surcharge")
 	}
 	s.Net = moneyString(cents.Int64())
-	if specialDay(dayType) && appliedPolicy == nil {
+	// A missing rate wins over a missing day policy, so approval can block it (empty UnpricedReason).
+	if specialDay(dayType) && appliedPolicy == nil && s.Priced {
 		s.Priced = false
 		s.UnpricedReason = dayType + "_POLICY_REQUIRED"
 	}
@@ -356,4 +358,63 @@ func loadPriceBreaks(ctx context.Context, q querier, id string) ([]priceInterval
 		out = append(out, b)
 	}
 	return out, rows.Err()
+}
+
+// repriceApproved gives approved work that is not on an invoice yet the current rates, so a rate
+// saved later also applies to older entries. filter is an SQL condition on work_sessions s.
+func (a *App) repriceApproved(ctx context.Context, tx pgx.Tx, actorID, reason, filter string, args ...any) error {
+	rows, err := tx.Query(ctx, `SELECT s.id::text,s.version,p.snapshot FROM work_sessions s JOIN approvals p ON p.session_id=s.id AND p.source_version=s.version WHERE s.state='APPROVED' AND (`+filter+`) ORDER BY s.id FOR UPDATE OF s`, args...)
+	if err != nil {
+		return err
+	}
+	type approved struct {
+		id       string
+		version  int64
+		snapshot []byte
+	}
+	list := []approved{}
+	for rows.Next() {
+		var v approved
+		if err = rows.Scan(&v.id, &v.version, &v.snapshot); err != nil {
+			rows.Close()
+			return err
+		}
+		list = append(list, v)
+	}
+	rows.Close()
+	if err = rows.Err(); err != nil {
+		return err
+	}
+	for _, v := range list {
+		// Checked after the lock in its own statement, so an invoice that committed while we waited is seen.
+		var reserved bool
+		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM invoice_allocations WHERE session_id=$1 AND active)`, v.id).Scan(&reserved); err != nil {
+			return err
+		}
+		if reserved {
+			continue
+		}
+		snapshot, err := a.pricingSnapshot(ctx, tx, v.id)
+		if err != nil {
+			return err
+		}
+		raw := mustJSON(snapshot)
+		var same bool
+		if err = tx.QueryRow(ctx, `SELECT $1::jsonb=$2::jsonb`, v.snapshot, raw).Scan(&same); err != nil {
+			return err
+		}
+		if same {
+			continue
+		}
+		if _, err = tx.Exec(ctx, `INSERT INTO approvals(session_id,source_version,actor_id,snapshot) VALUES($1,$2,$3,$4)`, v.id, v.version+1, actorID, raw); err != nil {
+			return err
+		}
+		if _, err = tx.Exec(ctx, `UPDATE work_sessions SET version=version+1,updated_at=clock_timestamp() WHERE id=$1`, v.id); err != nil {
+			return err
+		}
+		if err = a.audit(ctx, tx, actorID, "work.repriced", v.id, json.RawMessage(v.snapshot), map[string]any{"snapshot": snapshot, "reason": reason}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
