@@ -244,7 +244,8 @@ func calculatePolicyPrice(start, stop time.Time, breaks []priceInterval, rules [
 		return s, problem(422, "AMOUNT_TOO_LARGE", "Calculated charges exceed the supported range. Review the hourly rate and surcharge")
 	}
 	s.Net = moneyString(cents.Int64())
-	if specialDay(dayType) && appliedPolicy == nil {
+	// A missing rate wins over a missing day policy, so approval can block it (empty UnpricedReason).
+	if specialDay(dayType) && appliedPolicy == nil && s.Priced {
 		s.Priced = false
 		s.UnpricedReason = dayType + "_POLICY_REQUIRED"
 	}
@@ -362,7 +363,7 @@ func loadPriceBreaks(ctx context.Context, q querier, id string) ([]priceInterval
 // repriceApproved gives approved work that is not on an invoice yet the current rates, so a rate
 // saved later also applies to older entries. filter is an SQL condition on work_sessions s.
 func (a *App) repriceApproved(ctx context.Context, tx pgx.Tx, actorID, reason, filter string, args ...any) error {
-	rows, err := tx.Query(ctx, `SELECT s.id::text,s.version,p.snapshot FROM work_sessions s JOIN approvals p ON p.session_id=s.id AND p.source_version=s.version WHERE s.state='APPROVED' AND NOT EXISTS(SELECT 1 FROM invoice_allocations al WHERE al.session_id=s.id AND al.active) AND (`+filter+`) ORDER BY s.id FOR UPDATE OF s`, args...)
+	rows, err := tx.Query(ctx, `SELECT s.id::text,s.version,p.snapshot FROM work_sessions s JOIN approvals p ON p.session_id=s.id AND p.source_version=s.version WHERE s.state='APPROVED' AND (`+filter+`) ORDER BY s.id FOR UPDATE OF s`, args...)
 	if err != nil {
 		return err
 	}
@@ -385,6 +386,14 @@ func (a *App) repriceApproved(ctx context.Context, tx pgx.Tx, actorID, reason, f
 		return err
 	}
 	for _, v := range list {
+		// Checked after the lock in its own statement, so an invoice that committed while we waited is seen.
+		var reserved bool
+		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM invoice_allocations WHERE session_id=$1 AND active)`, v.id).Scan(&reserved); err != nil {
+			return err
+		}
+		if reserved {
+			continue
+		}
 		snapshot, err := a.pricingSnapshot(ctx, tx, v.id)
 		if err != nil {
 			return err
