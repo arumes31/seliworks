@@ -289,4 +289,14 @@ Production is the default and requires an HTTPS `APP_URL` before startup. Sessio
 
 Published regressions are included under `internal/app/*_test.go` and `web/test/` through explicit exceptions in [.gitignore](.gitignore). Additional local tests, internal documentation, screenshots, and generated reports are not published. The workflows define the exact hosted verification scope.
 
+### Local verification and pre-push hook
+
+Activate repository hooks to run fast local checks before pushing:
+
+```sh
+git config core.hooksPath .githooks
+```
+
+The pre-push hook verifies Go formatting (`gofmt`), Go static analysis (`go vet`), TypeScript types and Prettier formatting, and GitHub Actions workflow syntax (`actionlint`).
+
 Mobile layouts are tested using virtual phone viewports. This does not establish acceptance on physical Android or iPhone devices.
