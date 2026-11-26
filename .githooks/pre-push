@@ -1,0 +1,36 @@
+#!/bin/sh
+set -e
+
+echo "Running pre-push checks..."
+
+# 1. Check Go formatting
+if command -v gofmt >/dev/null 2>&1; then
+  echo "Checking Go formatting..."
+  unformatted=$(gofmt -l cmd internal 2>/dev/null || true)
+  if [ -n "$unformatted" ]; then
+    echo "Error: Unformatted Go files detected:"
+    echo "$unformatted"
+    echo "Run: gofmt -w cmd internal"
+    exit 1
+  fi
+fi
+
+# 2. Check Go vet
+if command -v go >/dev/null 2>&1; then
+  echo "Checking Go vet..."
+  go vet ./...
+fi
+
+# 3. Check frontend formatting and typecheck if web/ exists and node is available
+if command -v npm >/dev/null 2>&1 && [ -d "web/node_modules" ]; then
+  echo "Checking frontend typecheck and prettier..."
+  (cd web && npm run typecheck && npx --no-install prettier --check src index.html vite.config.ts tsconfig.json)
+fi
+
+# 4. Check GitHub workflow syntax if actionlint and python3 are available
+if command -v python3 >/dev/null 2>&1 && command -v actionlint >/dev/null 2>&1; then
+  echo "Validating GitHub workflow syntax..."
+  python3 .github/scripts/lint-workflows.py
+fi
+
+echo "All pre-push checks passed!"
