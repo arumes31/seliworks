@@ -6,7 +6,7 @@ echo "Running pre-push checks..."
 # 1. Check Go formatting
 if command -v gofmt >/dev/null 2>&1; then
   echo "Checking Go formatting..."
-  unformatted=$(gofmt -l cmd internal 2>/dev/null || true)
+  unformatted=$(git ls-files -z -- 'cmd/*.go' 'internal/*.go' | xargs -0 gofmt -l 2>/dev/null || true)
   if [ -n "$unformatted" ]; then
     echo "Error: Unformatted Go files detected:"
     echo "$unformatted"
