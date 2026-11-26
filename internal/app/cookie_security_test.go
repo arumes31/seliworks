@@ -3,6 +3,7 @@ package app
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -157,4 +158,15 @@ func TestCookieSecurityRetryAfter(t *testing.T) {
 	if w.Header().Get("Retry-After") != "" {
 		t.Fatal("Retry-After sent without a retry hint")
 	}
+}
+
+// setupTokenFromURL is untagged so integration and local unit tests share it.
+//
+//nolint:unused // untagged callers are local, unpublished tests
+func setupTokenFromURL(s string) string {
+	parts := strings.Split(s, "/#setup/")
+	if len(parts) != 2 {
+		return ""
+	}
+	return parts[1]
 }
